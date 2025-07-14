@@ -4,7 +4,7 @@ export default function Todo() {
     <div className="grid grid-cols-[250px_1fr] h-screen">
       {/* Sidebar */}
       <div className="flex flex-col bg-[#3A3A3A] text-white p-6 gap-2.5 shadow-2xl">
-        <h2 className="text-2xl font-bold mb-8"><i class="fa-solid fa-clipboard"></i> Listify</h2>
+        <h2 className="text-2xl font-bold mb-8"><i class="fa-solid fa-clipboard"></i> ListFy</h2>
         <nav className="flex flex-col gap-4">
           <button className="text-left hover:opacity-65 transition duration-300"><i class="fa-solid fa-pencil fa-xs"></i> Criar nova lista</button>
           <button className="text-left hover:opacity-65 transition duration-300"><i class="fa-solid fa-tasks"></i>  Buscar Listas</button>
