@@ -1,6 +1,6 @@
 # 📋 Listify
 
-O *Listify* é um projeto pessoal desenvolvido para colocar em prática conhecimentos em desenvolvimento web. Ele é uma aplicação de listas de tarefas (to-do list) onde os usuários podem criar suas contas, adicionar tarefas e organizar diferentes listas separadas por temas, como sessões
+O *Listify* é um projeto pessoal desenvolvido para colocar em prática conhecimentos em desenvolvimento web. Ele é uma aplicação de listas de tarefas (to-do list) onde os usuários podem criar suas contas, adicionar tarefas e organizar diferentes listas separadas por temas, como sessões.
 
 ## 🚀 Funcionalidades
 
