@@ -15,8 +15,6 @@ export default function Todo() {
       mensagem.textContent = mensagemSucesso
       mensagem.style.color = "#098f14ff"
     }
-
-
     var listaTarefas = document.getElementById("listaTarefas")
     var novaTarefa = document.createElement("li")
     novaTarefa.textContent = tarefa
@@ -61,9 +59,9 @@ export default function Todo() {
             type="text"
             id="inputTarefa"
             placeholder="Nova tarefa..."
-            className="flex-1 p-2 rounded border border-gray-300"
+            className="flex-1 p-2 rounded border border-white"
           />
-          <button onClick={adcTarefa} className="bg-amber-900 text-white px-4 py-2 rounded hover:bg-amber-800">
+          <button onClick={adcTarefa} className="bg-[#3A3A3A] text-white px-4 py-2 rounded hover:bg-[#575757] transition duration-300">
             Adicionar
           </button>
 
