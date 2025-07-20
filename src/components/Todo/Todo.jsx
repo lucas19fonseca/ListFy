@@ -3,24 +3,32 @@ import React, { useState } from "react";
 export default function Todo() {
   const [tarefas, setTarefas] = useState([]);
   const [mensagem, setMensagem] = useState("");
+  const [novaTarefa, setNovaTarefa] = useState("");
 
-  function adcTarefa() {
-    const input = document.getElementById("inputTarefa");
-    const novaTarefaTexto = input.value.trim();
+  function adicionarTarefa() {
+    const tarefa = novaTarefa.trim();
 
-    if (novaTarefaTexto === "") {
-      setMensagem("Campo vazio, insira algo!");
-      return;
+    if (tarefa === "") {
+      setMensagem("Digite uma tarefa para adicioná-la a sua lista!");
+    } else {
+      setTarefas([...tarefas, tarefa]);
+      setMensagem("Tarefa adicionada com sucesso!");
+      setNovaTarefa(""); // limpa o input
     }
-
-    setTarefas([...tarefas, novaTarefaTexto]);
-    setMensagem("Tarefa adicionada com sucesso");
-    input.value = "";
   }
 
   function removerTarefa(index) {
     const novasTarefas = tarefas.filter((_, i) => i !== index);
     setTarefas(novasTarefas);
+  }
+
+  function editarTarefa(index) {
+    const nova = prompt("Edite a tarefa:", tarefas[index]);
+    if (nova && nova.trim() !== "") {
+      const novasTarefas = [...tarefas];
+      novasTarefas[index] = nova.trim();
+      setTarefas(novasTarefas);
+    }
   }
 
   return (
@@ -67,30 +75,33 @@ export default function Todo() {
         <div className="flex gap-4 mb-6">
           <input
             type="text"
-            id="inputTarefa"
+            value={novaTarefa}
+            onChange={(e) => setNovaTarefa(e.target.value)}
             placeholder="Nova tarefa..."
-            className="flex-1 p-2 rounded border border-gray-300"
+            className="flex-1 p-2 rounded border border-black "
           />
           <button
-            onClick={adcTarefa}
+            onClick={adicionarTarefa}
             className="bg-[#3A3A3A] text-white px-4 py-2 rounded hover:bg-[#4e4e4e] transition duration-400"
           >
             Adicionar
           </button>
         </div>
 
-        <p id="mensagem" className={`mb-4 font-medium text-md ${mensagem.includes("sucesso") ? "text-green-500" : "text-red-500"}`}>
+        <p className={`mb-4 font-medium text-md ${mensagem.includes("sucesso") ? "text-green-500" : "text-red-500"}`}>
           {mensagem}
         </p>
 
         {/* Lista de tarefas */}
-        <ul className="space-y-5 bg-white rounded-lg shadow-sm p-4" id="listaTarefas">
+        <ul className="space-y-5 bg-white rounded-lg shadow-sm p-4">
           {tarefas.map((tarefa, index) => (
             <li key={index} className="flex justify-between items-center">
               {tarefa}
-
               <div className="flex gap-3">
-                <button className="text-gray-600 hover:text-gray-800">
+                <button
+                  className="text-gray-600 hover:text-gray-800"
+                  onClick={() => editarTarefa(index)}
+                >
                   <i className="fa-solid fa-pencil"></i>
                 </button>
                 <button
@@ -101,7 +112,6 @@ export default function Todo() {
                 </button>
               </div>
             </li>
-
           ))}
         </ul>
       </div>
