@@ -9,6 +9,7 @@ export default function Todo() {
   const [novoLink, setNovoLink] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [sidebarAberta, setSidebarAberta] = useState(false);
+  const [filtro, setFiltro] = useState("todas");
 
   useEffect(() => {
     localStorage.setItem("listas", JSON.stringify(listas));
@@ -19,7 +20,12 @@ export default function Todo() {
     if (texto === "") {
       setMensagem("Digite uma tarefa para adicioná-la a sua lista!");
     } else {
-      const nova = { texto, link: novoLink.trim() || "" };
+      const nova = {
+        texto,
+        link: novoLink.trim() || "",
+        concluida: false,
+        importante: false,
+      };
       setListas({
         ...listas,
         [listaAtiva]: [...listas[listaAtiva], nova],
@@ -46,7 +52,11 @@ export default function Todo() {
     const novoLink = prompt("Edite o link (opcional):", tarefaAtual.link || "");
     if (novoTexto && novoTexto.trim() !== "") {
       const novas = [...listas[listaAtiva]];
-      novas[index] = { texto: novoTexto.trim(), link: novoLink.trim() || "" };
+      novas[index] = {
+        ...novas[index],
+        texto: novoTexto.trim(),
+        link: novoLink.trim() || "",
+      };
       setListas({
         ...listas,
         [listaAtiva]: novas,
@@ -93,7 +103,32 @@ export default function Todo() {
     setSidebarAberta(!sidebarAberta);
   }
 
+  function toggleConcluida(index) {
+    const novas = [...listas[listaAtiva]];
+    novas[index].concluida = !novas[index].concluida;
+    setListas({
+      ...listas,
+      [listaAtiva]: novas,
+    });
+  }
+
+  function toggleImportante(index) {
+    const novas = [...listas[listaAtiva]];
+    novas[index].importante = !novas[index].importante;
+    setListas({
+      ...listas,
+      [listaAtiva]: novas,
+    });
+  }
+
   const temLista = Object.keys(listas).length > 0;
+
+  const tarefasFiltradas = listas[listaAtiva]?.filter((tarefa) => {
+    if (filtro === "incompletas") return !tarefa.concluida;
+    if (filtro === "concluidas") return tarefa.concluida;
+    if (filtro === "importantes") return tarefa.importante;
+    return true;
+  });
 
   return (
     <div className="flex h-screen relative">
@@ -137,7 +172,24 @@ export default function Todo() {
           </button>
         </div>
 
-        <nav className="flex flex-col gap-4 mt-4">
+        {/* Botões de filtro */}
+        <nav className="flex flex-col gap-3 mt-4">
+          <button onClick={() => setFiltro("todas")} className="text-left hover:opacity-65 transition duration-300">
+            <i className="fa-solid fa-tasks"></i> Todas
+          </button>
+          <button onClick={() => setFiltro("incompletas")} className="text-left hover:opacity-65 transition duration-300">
+            <i className="fa-solid fa-clock"></i> Incompletas
+          </button>
+          <button onClick={() => setFiltro("concluidas")} className="text-left hover:opacity-65 transition duration-300">
+            <i className="fa-solid fa-check"></i> Concluídas
+          </button>
+          <button onClick={() => setFiltro("importantes")} className="text-left hover:opacity-65 transition duration-300">
+            <i className="fa-solid fa-exclamation-triangle"></i> Importantes
+          </button>
+        </nav>
+
+        {/* Criar lista */}
+        <nav className="flex flex-col gap-4 mt-6">
           <button
             onClick={criarLista}
             className="text-left hover:opacity-65 transition duration-200"
@@ -147,11 +199,11 @@ export default function Todo() {
         </nav>
 
         {temLista && (
-          <div className="flex flex-col text-white pt-8 mt-8">
+          <div className="flex flex-col text-white pt-8 mt-8 flex-1 overflow-y-auto">
             <span className="text-[17px] font-light opacity-50 mb-3">
               Listas
             </span>
-            <nav className="flex flex-col gap-4">
+            <nav className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-1">
               {Object.keys(listas).map((nome) => (
                 <div key={nome} className="flex justify-between items-center">
                   <button
@@ -179,7 +231,7 @@ export default function Todo() {
       </div>
 
       {/* Área principal */}
-      <div className="flex-1 bg-[#5e5e5e5e] p-4 md:p-8 w-full md:w-auto flex justify-center items-start md:items-start">
+      <div className="flex-1 bg-[#5e5e5e5e] p-4 md:p-8 w-full md:w-auto flex justify-center items-start md:items-start overflow-hidden">
         {!temLista ? (
           // Se não tiver lista, mostrar aviso no centro
           <div className="flex flex-col justify-center items-center text-center w-full h-full">
@@ -197,7 +249,7 @@ export default function Todo() {
             </button>
           </div>
         ) : (
-          <div className="w-full">
+          <div className="w-full h-full flex flex-col">
             {/* Header */}
             <div className="flex items-center gap-4 mb-6">
               <button
@@ -260,14 +312,19 @@ export default function Todo() {
             </p>
 
             {/* Lista de tarefas */}
-            <ul className="space-y-3 md:space-y-5 bg-white rounded-lg shadow-sm p-3 md:p-4">
-              {listas[listaAtiva]?.map((tarefa, index) => (
+            <ul className="space-y-3 md:space-y-5 bg-white rounded-lg shadow-sm p-3 md:p-4 
+                           max-h-[400px] overflow-y-auto flex-1">
+              {tarefasFiltradas?.map((tarefa, index) => (
                 <li
                   key={index}
                   className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-2 border-b border-gray-100 last:border-b-0"
                 >
                   <div className="flex-1">
-                    <span className="text-sm md:text-base break-words font-medium">
+                    <span
+                      className={`text-sm md:text-base break-words font-medium ${
+                        tarefa.concluida ? "line-through text-gray-400" : ""
+                      }`}
+                    >
                       {tarefa.texto}
                     </span>
                     {tarefa.link && (
@@ -282,6 +339,28 @@ export default function Todo() {
                     )}
                   </div>
                   <div className="flex gap-2 self-end sm:self-center">
+                    <button
+                      onClick={() => toggleConcluida(index)}
+                      className={`p-2 ${
+                        tarefa.concluida
+                          ? "text-green-700"
+                          : "text-gray-600 hover:text-green-800"
+                      }`}
+                      title="Concluir"
+                    >
+                      <i className="fa-solid fa-check"></i>
+                    </button>
+                    <button
+                      onClick={() => toggleImportante(index)}
+                      className={`p-2 ${
+                        tarefa.importante
+                          ? "text-yellow-500"
+                          : "text-gray-600 hover:text-yellow-600"
+                      }`}
+                      title="Importante"
+                    >
+                      <i className="fa-solid fa-exclamation-triangle"></i>
+                    </button>
                     <button
                       className="text-gray-600 hover:text-gray-800 p-2"
                       onClick={() => editarTarefa(index)}
@@ -300,12 +379,10 @@ export default function Todo() {
               ))}
             </ul>
 
-            {listas[listaAtiva]?.length === 0 && (
+            {tarefasFiltradas?.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                <p>Nenhuma tarefa nesta lista.</p>
-                <p className="text-sm mt-2">
-                  Adicione uma tarefa acima para começar!
-                </p>
+                <p>Nenhuma tarefa encontrada.</p>
+                <p className="text-sm mt-2">Adicione ou altere o filtro!</p>
               </div>
             )}
           </div>
