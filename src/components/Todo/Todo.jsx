@@ -27,6 +27,13 @@ export default function Todo() {
   const [filtro, setFiltro] = useState("incompletas");
   const [animando, setAnimando] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
+  const [modalEditarAberto, setModalEditarAberto] = useState(false);
+  const [modalCriarListaAberto, setModalCriarListaAberto] = useState(false);
+  const [modalRenomearListaAberto, setModalRenomearListaAberto] = useState(false);
+  const [tarefaEditando, setTarefaEditando] = useState(null);
+  const [nomeNovaLista, setNomeNovaLista] = useState("");
+  const [listaRenomeando, setListaRenomeando] = useState("");
+  const [novoNomeLista, setNovoNomeLista] = useState("");
   
   // Novos estados para melhorias
   const [busca, setBusca] = useState("");
@@ -35,6 +42,15 @@ export default function Todo() {
     return saved ? JSON.parse(saved) : false;
   });
   const [ordenacao, setOrdenacao] = useState("recente");
+  const [menuAberto, setMenuAberto] = useState(null); // Para controlar qual menu está aberto
+  const [listasColapsadas, setListasColapsadas] = useState(false); // Para colapsar seção das listas
+  
+  // Estados para edição de tarefa
+  const [tarefaEditandoTexto, setTarefaEditandoTexto] = useState("");
+  const [tarefaEditandoLink, setTarefaEditandoLink] = useState("");
+  const [tarefaEditandoDescricao, setTarefaEditandoDescricao] = useState("");
+  const [tarefaEditandoPrazo, setTarefaEditandoPrazo] = useState("");
+  const [tarefaEditandoPrioridade, setTarefaEditandoPrioridade] = useState("normal");
 
   // Adicionar estilo CSS
   useEffect(() => {
@@ -148,7 +164,7 @@ export default function Todo() {
     }
   }, [listas, listaAtiva]);
 
-  // Atalhos de teclado
+  // Atalhos de teclado e fechar menu
   useEffect(() => {
     const handleKeyboard = (e) => {
       // Ctrl + N = Nova tarefa
@@ -158,22 +174,33 @@ export default function Todo() {
           setModalAberto(true);
         }
       }
-      // Ctrl + / = Focar busca (apenas nas categorias globais)
+      // Ctrl + / = Focar busca
       if (e.ctrlKey && e.key === '/') {
         e.preventDefault();
-        if (filtro !== "lista") {
-          document.getElementById('busca-input')?.focus();
-        }
+        document.getElementById('busca-input')?.focus();
       }
-      // Escape = Fechar modal
+      // Escape = Fechar modal ou menu
       if (e.key === 'Escape') {
         setModalAberto(false);
+        setMenuAberto(null);
+      }
+    };
+
+    const handleClickOutside = (e) => {
+      // Fechar menu ao clicar fora
+      if (menuAberto && !e.target.closest('.relative')) {
+        setMenuAberto(null);
       }
     };
 
     document.addEventListener('keydown', handleKeyboard);
-    return () => document.removeEventListener('keydown', handleKeyboard);
-  }, [filtro]);
+    document.addEventListener('click', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyboard);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [filtro, menuAberto]);
 
   // Gerar ID único
   function gerarId() {
@@ -222,24 +249,24 @@ export default function Todo() {
         if (filtro === "importantes") return tarefa.importante;
         return false;
       });
-      
-      // Aplicar busca APENAS nas categorias globais
-      if (busca.trim()) {
-        const termoBusca = busca.toLowerCase().trim();
-        tarefas = tarefas.filter(tarefa => 
-          tarefa.texto.toLowerCase().includes(termoBusca) ||
-          tarefa.descricao?.toLowerCase().includes(termoBusca) ||
-          tarefa.nomeLista.toLowerCase().includes(termoBusca)
-        );
-      }
     } else {
-      // Quando está em uma lista específica, não aplicar busca
+      // Quando está em uma lista específica
       tarefas = (listas[listaAtiva] || []).map((tarefa, index) => ({
         ...tarefa,
         nomeLista: listaAtiva,
         indexOriginal: index,
         listaOriginal: listaAtiva
       }));
+    }
+
+    // Aplicar busca em todos os contextos
+    if (busca.trim()) {
+      const termoBusca = busca.toLowerCase().trim();
+      tarefas = tarefas.filter(tarefa => 
+        tarefa.texto.toLowerCase().includes(termoBusca) ||
+        tarefa.descricao?.toLowerCase().includes(termoBusca) ||
+        (filtro !== "lista" && tarefa.nomeLista.toLowerCase().includes(termoBusca))
+      );
     }
 
     // Aplicar ordenação
@@ -390,19 +417,48 @@ export default function Todo() {
   }
 
   function editarTarefa(tarefa) {
-    const novoTexto = prompt("Edite a tarefa:", tarefa.texto);
-    
-    if (novoTexto && novoTexto.trim() !== "") {
-      const novas = [...listas[tarefa.listaOriginal]];
-      novas[tarefa.indexOriginal] = {
-        ...novas[tarefa.indexOriginal],
-        texto: novoTexto.trim(),
-      };
-      setListas({
-        ...listas,
-        [tarefa.listaOriginal]: novas,
-      });
+    setTarefaEditando(tarefa);
+    setTarefaEditandoTexto(tarefa.texto);
+    setTarefaEditandoLink(tarefa.link || "");
+    setTarefaEditandoDescricao(tarefa.descricao || "");
+    setTarefaEditandoPrazo(tarefa.prazo || "");
+    setTarefaEditandoPrioridade(tarefa.prioridade || "normal");
+    setModalEditarAberto(true);
+  }
+
+  function salvarEdicaoTarefa() {
+    if (!tarefaEditandoTexto.trim()) {
+      setMensagem("Digite um título para a tarefa!");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
     }
+
+    const link = tarefaEditandoLink.trim();
+    if (link && !link.match(/^https?:\/\//)) {
+      setMensagem("Link inválido! Use http:// ou https://");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
+    }
+
+    const novas = [...listas[tarefaEditando.listaOriginal]];
+    novas[tarefaEditando.indexOriginal] = {
+      ...novas[tarefaEditando.indexOriginal],
+      texto: tarefaEditandoTexto.trim(),
+      link: link || "",
+      descricao: tarefaEditandoDescricao.trim() || "",
+      prazo: tarefaEditandoPrazo || "",
+      prioridade: tarefaEditandoPrioridade,
+    };
+
+    setListas({
+      ...listas,
+      [tarefaEditando.listaOriginal]: novas,
+    });
+
+    setModalEditarAberto(false);
+    setTarefaEditando(null);
+    setMensagem("Tarefa editada com sucesso!");
+    setTimeout(() => setMensagem(""), 3000);
   }
 
   // Limpar tudo
@@ -423,18 +479,80 @@ export default function Todo() {
 
   // Criar lista
   function criarLista() {
-    const nome = prompt("Nome da nova lista:");
-    if (nome && nome.trim() !== "" && !listas[nome.trim()]) {
-      setListas({
-        ...listas,
-        [nome.trim()]: [],
-      });
-      setListaAtiva(nome.trim());
-      setFiltro("lista");
-    } else if (listas[nome?.trim()]) {
+    setNomeNovaLista("");
+    setModalCriarListaAberto(true);
+  }
+
+  function salvarNovaLista() {
+    const nome = nomeNovaLista.trim();
+    if (nome === "") {
+      setMensagem("Digite um nome para a lista!");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
+    }
+
+    if (listas[nome]) {
       setMensagem("Já existe uma lista com este nome!");
       setTimeout(() => setMensagem(""), 3000);
+      return;
     }
+
+    setListas({
+      ...listas,
+      [nome]: [],
+    });
+    setListaAtiva(nome);
+    setFiltro("lista");
+    setModalCriarListaAberto(false);
+    setNomeNovaLista("");
+    setMensagem("Lista criada com sucesso!");
+    setTimeout(() => setMensagem(""), 3000);
+  }
+
+  // Renomear lista
+  function renomearLista(nomeAtual) {
+    setListaRenomeando(nomeAtual);
+    setNovoNomeLista(nomeAtual);
+    setModalRenomearListaAberto(true);
+    setMenuAberto(null);
+  }
+
+  function salvarRenomeacaoLista() {
+    const novoNome = novoNomeLista.trim();
+    
+    if (novoNome === "") {
+      setMensagem("Digite um nome para a lista!");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
+    }
+
+    if (novoNome === listaRenomeando) {
+      setModalRenomearListaAberto(false);
+      setListaRenomeando("");
+      setNovoNomeLista("");
+      return;
+    }
+
+    if (listas[novoNome]) {
+      setMensagem("Já existe uma lista com este nome!");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
+    }
+    
+    const novasListas = { ...listas };
+    novasListas[novoNome] = novasListas[listaRenomeando];
+    delete novasListas[listaRenomeando];
+    
+    setListas(novasListas);
+    if (listaAtiva === listaRenomeando) {
+      setListaAtiva(novoNome);
+    }
+    
+    setModalRenomearListaAberto(false);
+    setListaRenomeando("");
+    setNovoNomeLista("");
+    setMensagem("Lista renomeada com sucesso!");
+    setTimeout(() => setMensagem(""), 3000);
   }
 
   // Remover lista
@@ -446,6 +564,7 @@ export default function Todo() {
       const nomesRestantes = Object.keys(novasListas);
       setListaAtiva(nomesRestantes[0] || "");
       setListas(novasListas);
+      setMenuAberto(null);
     }
   }
 
@@ -527,70 +646,178 @@ export default function Todo() {
         />
       )}
 
-      {/* Modal de adicionar tarefa detalhada */}
-      {modalAberto && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className={`${bgSecondary} ${textPrimary} rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto`}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl sm:text-2xl font-bold">Nova Tarefa</h2>
+      {/* Modal de renomear lista */}
+      {modalRenomearListaAberto && (
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
+            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-4 sm:p-6 border-b ${border} rounded-t-xl`}>
+              <h2 className="text-xl sm:text-2xl font-bold">Renomear Lista</h2>
               <button
-                onClick={() => setModalAberto(false)}
-                className={`${textSecondary} hover:${textPrimary} text-xl sm:text-2xl p-2`}
+                onClick={() => {
+                  setModalRenomearListaAberto(false);
+                  setListaRenomeando("");
+                  setNovoNomeLista("");
+                }}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
-            <div className="space-y-3 sm:space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Título da tarefa *</label>
+                <label className="block text-sm font-medium mb-2">Novo nome da lista *</label>
+                <input
+                  type="text"
+                  value={novoNomeLista}
+                  onChange={(e) => setNovoNomeLista(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && salvarRenomeacaoLista()}
+                  placeholder="Digite o novo nome da lista..."
+                  autoFocus
+                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 mt-6">
+                <button
+                  onClick={salvarRenomeacaoLista}
+                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium text-base"
+                >
+                  Renomear Lista
+                </button>
+                <button
+                  onClick={() => {
+                    setModalRenomearListaAberto(false);
+                    setListaRenomeando("");
+                    setNovoNomeLista("");
+                  }}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de criar lista */}
+      {modalCriarListaAberto && (
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
+            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-4 sm:p-6 border-b ${border} rounded-t-xl`}>
+              <h2 className="text-xl sm:text-2xl font-bold">Nova Lista</h2>
+              <button
+                onClick={() => {
+                  setModalCriarListaAberto(false);
+                  setNomeNovaLista("");
+                }}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Nome da nova lista *</label>
+                <input
+                  type="text"
+                  value={nomeNovaLista}
+                  onChange={(e) => setNomeNovaLista(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && salvarNovaLista()}
+                  placeholder="Ex: Trabalho, Estudos, Casa..."
+                  autoFocus
+                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 mt-6">
+                <button
+                  onClick={salvarNovaLista}
+                  className="w-full bg-[#3A3A3A] text-white px-4 py-3 rounded-lg hover:bg-[#4e4e4e] transition font-medium text-base"
+                >
+                  Criar Lista
+                </button>
+                <button
+                  onClick={() => {
+                    setModalCriarListaAberto(false);
+                    setNomeNovaLista("");
+                  }}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de adicionar tarefa detalhada - Centralizado */}
+      {modalAberto && (
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
+            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-4 sm:p-6 border-b ${border} rounded-t-xl`}>
+              <h2 className="text-xl sm:text-2xl font-bold">Nova Tarefa</h2>
+              <button
+                onClick={() => setModalAberto(false)}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Título da tarefa *</label>
                 <input
                   type="text"
                   value={novaTarefa}
                   onChange={(e) => setNovaTarefa(e.target.value)}
                   placeholder="Ex: Estudar React"
-                  className={`w-full p-2 sm:p-3 border ${border} rounded focus:border-blue-500 focus:outline-none text-sm sm:text-base ${bgSecondary} ${textPrimary}`}
+                  className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Descrição</label>
+                <label className="block text-sm font-medium mb-2">Descrição</label>
                 <textarea
                   value={novaDescricao}
                   onChange={(e) => setNovaDescricao(e.target.value)}
                   placeholder="Adicione detalhes sobre a tarefa..."
-                  className={`w-full p-2 sm:p-3 border ${border} rounded focus:border-blue-500 focus:outline-none h-20 sm:h-24 resize-none text-sm sm:text-base ${bgSecondary} ${textPrimary}`}
+                  className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none h-24 sm:h-24 resize-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Link</label>
+                <label className="block text-sm font-medium mb-2">Link</label>
                 <input
                   type="url"
                   value={novoLink}
                   onChange={(e) => setNovoLink(e.target.value)}
                   placeholder="https://exemplo.com"
-                  className={`w-full p-2 sm:p-3 border ${border} rounded focus:border-blue-500 focus:outline-none text-sm sm:text-base ${bgSecondary} ${textPrimary}`}
+                  className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium mb-1">Prazo</label>
+                  <label className="block text-sm font-medium mb-2">Prazo</label>
                   <input
                     type="date"
                     value={prazo}
                     onChange={(e) => setPrazo(e.target.value)}
-                    className={`w-full p-2 sm:p-3 border ${border} rounded focus:border-blue-500 focus:outline-none text-sm sm:text-base ${bgSecondary} ${textPrimary}`}
+                    className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium mb-1">Prioridade</label>
+                  <label className="block text-sm font-medium mb-2">Prioridade</label>
                   <select
                     value={prioridade}
                     onChange={(e) => setPrioridade(e.target.value)}
-                    className={`w-full p-2 sm:p-3 border ${border} rounded focus:border-blue-500 focus:outline-none text-sm sm:text-base ${bgSecondary} ${textPrimary}`}
+                    className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
                   >
                     <option value="baixa">Baixa</option>
                     <option value="normal">Normal</option>
@@ -599,16 +826,113 @@ export default function Todo() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+              <div className="flex flex-col gap-3 mt-6">
                 <button
                   onClick={adicionarTarefa}
-                  className="flex-1 bg-[#3A3A3A] text-white px-4 py-2 sm:py-3 rounded hover:bg-[#4e4e4e] transition font-medium text-sm sm:text-base"
+                  className="w-full bg-[#3A3A3A] text-white px-4 py-3 rounded-lg hover:bg-[#4e4e4e] transition font-medium text-base"
                 >
                   Adicionar Tarefa
                 </button>
                 <button
                   onClick={() => setModalAberto(false)}
-                  className={`px-4 py-2 sm:py-3 border ${border} rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm sm:text-base`}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de editar tarefa */}
+      {modalEditarAberto && (
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
+            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-4 sm:p-6 border-b ${border} rounded-t-xl`}>
+              <h2 className="text-xl sm:text-2xl font-bold">Editar Tarefa</h2>
+              <button
+                onClick={() => {
+                  setModalEditarAberto(false);
+                  setTarefaEditando(null);
+                }}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Título da tarefa *</label>
+                <input
+                  type="text"
+                  value={tarefaEditandoTexto}
+                  onChange={(e) => setTarefaEditandoTexto(e.target.value)}
+                  placeholder="Ex: Estudar React"
+                  className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Descrição</label>
+                <textarea
+                  value={tarefaEditandoDescricao}
+                  onChange={(e) => setTarefaEditandoDescricao(e.target.value)}
+                  placeholder="Adicione detalhes sobre a tarefa..."
+                  className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none h-24 sm:h-24 resize-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Link</label>
+                <input
+                  type="url"
+                  value={tarefaEditandoLink}
+                  onChange={(e) => setTarefaEditandoLink(e.target.value)}
+                  placeholder="https://exemplo.com"
+                  className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Prazo</label>
+                  <input
+                    type="date"
+                    value={tarefaEditandoPrazo}
+                    onChange={(e) => setTarefaEditandoPrazo(e.target.value)}
+                    className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Prioridade</label>
+                  <select
+                    value={tarefaEditandoPrioridade}
+                    onChange={(e) => setTarefaEditandoPrioridade(e.target.value)}
+                    className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
+                  >
+                    <option value="baixa">Baixa</option>
+                    <option value="normal">Normal</option>
+                    <option value="alta">Alta</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 mt-6">
+                <button
+                  onClick={salvarEdicaoTarefa}
+                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium text-base"
+                >
+                  Salvar Alterações
+                </button>
+                <button
+                  onClick={() => {
+                    setModalEditarAberto(false);
+                    setTarefaEditando(null);
+                  }}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
                 >
                   Cancelar
                 </button>
@@ -659,19 +983,18 @@ export default function Todo() {
             <span className="text-sm sm:text-base">Nova lista</span>
           </button>
           
-          {filtro !== "lista" && (
-            <div className="relative">
-              <input
-                id="busca-input"
-                type="text"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar tarefas..."
-                className="w-full bg-gray-700 text-white placeholder-gray-400 text-xs sm:text-sm p-2 pl-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <i className="fa-solid fa-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
-            </div>
-          )}
+          {/* Busca sempre visível na sidebar */}
+          <div className="relative">
+            <input
+              id="busca-input-sidebar"
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar tarefas..."
+              className="w-full bg-gray-700 text-white placeholder-gray-400 text-xs sm:text-sm p-2 pl-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <i className="fa-solid fa-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+          </div>
 
           {temLista && (
             <button
@@ -730,63 +1053,85 @@ export default function Todo() {
           </div>
         </div>
 
-        {/* Listas - com prioridade */}
+        {/* Listas - com funcionalidade de colapsar */}
         {temLista && (
           <div className="flex-1 px-4 overflow-hidden flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Minhas Listas</h3>
-              {filtro !== "lista" && (
-                <select
-                  value={ordenacao}
-                  onChange={(e) => setOrdenacao(e.target.value)}
-                  className="text-xs bg-gray-700 text-gray-300 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="recente">Recente</option>
-                  <option value="alfabetica">A-Z</option>
-                  <option value="prioridade">Prioridade</option>
-                  <option value="prazo">Prazo</option>
-                </select>
-              )}
+              <button
+                onClick={() => setListasColapsadas(!listasColapsadas)}
+                className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors"
+              >
+                <i className={`fa-solid fa-chevron-${listasColapsadas ? 'right' : 'down'} text-xs transition-transform`}></i>
+                Minhas Listas
+              </button>
             </div>
             
-            <div className="space-y-1 overflow-y-auto flex-1 scrollbar-hide pb-4">
-              {Object.keys(listas).map((nome) => (
-                <div key={nome} className="group">
-                  <button
-                    onClick={() => {
-                      setListaAtiva(nome);
-                      setFiltro("lista");
-                      setBusca(""); // Limpar busca ao selecionar lista
-                    }}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${
-                      listaAtiva === nome && filtro === "lista"
-                        ? "bg-gray-700 text-white border-l-4 border-blue-500"
-                        : "text-gray-300 hover:text-white hover:bg-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <i className="fa-solid fa-list text-sm"></i>
-                      <span className="truncate">{nome}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs bg-gray-600 px-2 py-1 rounded">
-                        {listas[nome].length}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removerLista(nome);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all duration-200 p-1"
-                        title="Excluir lista"
-                      >
-                        <i className="fa-solid fa-trash text-xs"></i>
-                      </button>
-                    </div>
-                  </button>
-                </div>
-              ))}
-            </div>
+            {!listasColapsadas && (
+              <div className="space-y-1 overflow-y-auto flex-1 custom-scrollbar pb-4">
+                {Object.keys(listas).map((nome) => (
+                  <div key={nome} className="group relative">
+                    <button
+                      onClick={() => {
+                        setListaAtiva(nome);
+                        setFiltro("lista");
+                        setBusca(""); // Limpar busca ao selecionar lista
+                        setMenuAberto(null); // Fechar menu ao selecionar lista
+                      }}
+                      className={`w-full flex items-center justify-between py-1.5 px-2 rounded-lg transition-all duration-200 ${
+                        listaAtiva === nome && filtro === "lista"
+                          ? "bg-gray-700 text-white border-l-4 border-blue-500"
+                          : "text-gray-300 hover:text-white hover:bg-gray-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <i className="fa-solid fa-list text-sm"></i>
+                        <span className="truncate text-sm">{nome}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuAberto(menuAberto === nome ? null : nome);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white transition-all duration-200 p-1 rounded hover:bg-gray-600"
+                          title="Opções da lista"
+                        >
+                          <i className="fa-solid fa-ellipsis text-sm"></i>
+                        </button>
+                      </div>
+                    </button>
+
+                    {/* Menu dropdown */}
+                    {menuAberto === nome && (
+                      <div className="absolute right-2 top-10 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-50 min-w-[140px]">
+                        <div className="py-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              renomearLista(nome);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-2"
+                          >
+                            <i className="fa-solid fa-pencil text-xs"></i>
+                            Renomear
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removerLista(nome);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-gray-700 flex items-center gap-2"
+                          >
+                            <i className="fa-solid fa-trash text-xs"></i>
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -835,45 +1180,76 @@ export default function Todo() {
           </div>
         ) : (
           <div className="w-full h-full flex flex-col max-w-5xl mx-auto">
-            {/* Header com busca e ordenação */}
+            {/* Header otimizado para mobile */}
             <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-              <div className="flex items-center gap-2 sm:gap-4">
-                <button
-                  className="md:hidden bg-[#3A3A3A] text-white p-2 rounded hover:bg-[#4e4e4e] transition duration-200"
-                  onClick={toggleSidebar}
-                >
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-                <h1 className={`text-2xl sm:text-3xl md:text-4xl font-bold ${textPrimary}`}>{obterTituloAtual()}</h1>
+              {/* Linha 1: Menu + Título (Mobile) | Título + Ordenação (Desktop) */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <button
+                    className="md:hidden bg-[#3A3A3A] text-white p-3 rounded-lg hover:bg-[#4e4e4e] transition duration-200 flex-shrink-0"
+                    onClick={toggleSidebar}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                  <h1 className={`text-xl sm:text-3xl md:text-4xl font-bold ${textPrimary} truncate`}>{obterTituloAtual()}</h1>
+                </div>
+                
+                {/* Controle de ordenação - Desktop apenas na primeira linha */}
+                <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+                  <span className={`text-sm ${textSecondary}`}>Ordenar por:</span>
+                  <div className="relative">
+                    <select
+                      value={ordenacao}
+                      onChange={(e) => setOrdenacao(e.target.value)}
+                      className={`appearance-none pl-8 pr-8 py-2.5 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-sm ${bgSecondary} ${textPrimary} cursor-pointer min-w-[140px]`}
+                    >
+                      <option value="recente">Mais recente</option>
+                      <option value="alfabetica">A-Z</option>
+                      <option value="prioridade">Prioridade</option>
+                      <option value="prazo">Prazo</option>
+                    </select>
+                    <i className={`fa-solid fa-sort absolute left-2.5 top-1/2 transform -translate-y-1/2 text-xs ${textSecondary} pointer-events-none`}></i>
+                    <i className={`fa-solid fa-chevron-down absolute right-2.5 top-1/2 transform -translate-y-1/2 text-xs ${textSecondary} pointer-events-none`}></i>
+                  </div>
+                </div>
               </div>
-              
-              {/* Barra de busca e ordenação */}
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+
+              {/* Linha 2 - Mobile: Busca + Ordenação | Desktop: Apenas busca */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Barra de busca */}
                 {filtro !== "lista" && (
-                  <div className="flex-1 relative">
+                  <div className="relative flex-1">
                     <input
                       id="busca-input"
                       type="text"
                       value={busca}
                       onChange={(e) => setBusca(e.target.value)}
-                      placeholder="Buscar tarefas... (Ctrl + /)"
-                      className={`w-full p-2.5 sm:p-3 pl-9 sm:pl-10 border ${border} rounded focus:border-blue-500 focus:outline-none text-sm sm:text-base ${bgSecondary} ${textPrimary}`}
+                      placeholder={`${window.innerWidth < 640 ? "Buscar..." : "Buscar tarefas... (Ctrl + /)"}`}
+                      className={`w-full p-3 sm:p-3 pl-10 sm:pl-10 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
                     />
                     <i className={`fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-sm ${textSecondary}`}></i>
                   </div>
                 )}
-                <select
-                  value={ordenacao}
-                  onChange={(e) => setOrdenacao(e.target.value)}
-                  className={`p-2.5 sm:p-3 border ${border} rounded focus:border-blue-500 focus:outline-none text-sm sm:text-base ${bgSecondary} ${textPrimary} ${filtro === "lista" ? "w-full sm:w-auto" : ""}`}
-                >
-                  <option value="recente">Mais recente</option>
-                  <option value="alfabetica">A-Z</option>
-                  <option value="prioridade">Prioridade</option>
-                  <option value="prazo">Prazo</option>
-                </select>
+
+                {/* Controle de ordenação - Mobile apenas */}
+                <div className="sm:hidden flex-shrink-0">
+                  <div className="relative">
+                    <select
+                      value={ordenacao}
+                      onChange={(e) => setOrdenacao(e.target.value)}
+                      className={`appearance-none pl-10 pr-10 py-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary} cursor-pointer w-full min-w-[140px]`}
+                    >
+                      <option value="recente">Mais recente</option>
+                      <option value="alfabetica">A-Z</option>
+                      <option value="prioridade">Prioridade</option>
+                      <option value="prazo">Prazo</option>
+                    </select>
+                    <i className={`fa-solid fa-sort absolute left-3 top-1/2 transform -translate-y-1/2 text-sm ${textSecondary} pointer-events-none`}></i>
+                    <i className={`fa-solid fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-sm ${textSecondary} pointer-events-none`}></i>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -895,43 +1271,49 @@ export default function Todo() {
                 </div>
               </div>
             ) : (
-              <div className={`${bgSecondary} rounded-lg shadow-md p-3 sm:p-4 mb-4 sm:mb-6`}>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <div className={`${bgSecondary} rounded-lg shadow-md p-4 sm:p-4 mb-4 sm:mb-6`}>
+                <div className="flex flex-col gap-3">
                   <input
                     type="text"
                     value={novaTarefa}
                     onChange={(e) => setNovaTarefa(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && adicionarTarefaRapida()}
                     placeholder="Adicionar nova tarefa..."
-                    className={`flex-1 p-2.5 sm:p-3 border ${border} rounded focus:border-blue-500 focus:outline-none text-sm sm:text-base ${bgSecondary} ${textPrimary}`}
+                    className={`w-full p-3 sm:p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base sm:text-base ${bgSecondary} ${textPrimary}`}
                   />
-                  <div className="flex gap-2 sm:gap-3">
+                  <div className="flex gap-3">
                     <button
                       onClick={adicionarTarefaRapida}
-                      className="flex-1 sm:flex-none bg-[#3A3A3A] text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded hover:bg-[#4e4e4e] transition whitespace-nowrap text-sm sm:text-base"
+                      className="flex-1 bg-[#3A3A3A] text-white px-4 py-3 rounded-lg hover:bg-[#4e4e4e] transition font-medium text-sm sm:text-base flex items-center justify-center gap-2"
                       title="Adicionar tarefa rápida"
                     >
                       <i className="fa-solid fa-plus"></i>
+                      <span className="hidden sm:inline">Adicionar</span>
                     </button>
                     <button
                       onClick={() => setModalAberto(true)}
-                      className="flex-1 sm:flex-none bg-blue-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded hover:bg-blue-700 transition whitespace-nowrap text-sm sm:text-base"
+                      className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium text-sm sm:text-base flex items-center justify-center gap-2"
                       title="Adicionar tarefa detalhada (Ctrl + N)"
                     >
                       <i className="fa-solid fa-list-check"></i>
+                      <span className="hidden sm:inline">Detalhes</span>
                     </button>
                     <button
                       onClick={limparTudo}
-                      className="flex-1 sm:flex-none bg-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded hover:bg-red-700 transition whitespace-nowrap text-sm sm:text-base"
+                      className="bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition font-medium text-sm sm:text-base flex items-center justify-center"
                       title="Limpar todas as tarefas"
                     >
                       <i className="fa-solid fa-trash"></i>
                     </button>
                   </div>
                 </div>
-                <p className={`text-[10px] sm:text-xs ${textSecondary} mt-2`}>
+                <p className={`text-xs sm:text-xs ${textSecondary} mt-3 text-center sm:text-left`}>
                   <i className="fa-solid fa-lightbulb mr-1"></i>
-                  Enter para adicionar • <i className="fa-solid fa-list-check mx-1"></i> para detalhes • Ctrl+N para nova tarefa
+                  <span className="hidden sm:inline">Enter para adicionar • </span>
+                  <i className="fa-solid fa-list-check mx-1"></i>
+                  <span className="hidden sm:inline">para detalhes • </span>
+                  <span className="sm:hidden">Toque para mais opções • </span>
+                  Ctrl+N para nova tarefa
                 </p>
               </div>
             )}
@@ -1048,29 +1430,29 @@ export default function Todo() {
                             </div>
                           </div>
 
-                          <div className="flex sm:flex-row flex-col gap-0.5 sm:gap-1 flex-shrink-0">
+                          <div className="flex flex-row gap-1 flex-shrink-0">
                             <button
                               onClick={() => toggleImportante(tarefa)}
-                              className={`p-1.5 sm:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                              className={`p-2 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                                 tarefa.importante ? "text-yellow-500" : textSecondary
                               }`}
                               title="Marcar como importante"
                             >
-                              <i className="fa-solid fa-star text-sm"></i>
+                              <i className="fa-solid fa-star text-base sm:text-sm"></i>
                             </button>
                             <button
                               onClick={() => editarTarefa(tarefa)}
-                              className={`p-1.5 sm:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${textSecondary}`}
+                              className={`p-2 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${textSecondary}`}
                               title="Editar"
                             >
-                              <i className="fa-solid fa-pencil text-sm"></i>
+                              <i className="fa-solid fa-pencil text-base sm:text-sm"></i>
                             </button>
                             <button
                               onClick={() => removerTarefa(tarefa)}
-                              className="p-1.5 sm:p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
+                              className="p-2 sm:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
                               title="Remover"
                             >
-                              <i className="fa-solid fa-trash text-sm"></i>
+                              <i className="fa-solid fa-trash text-base sm:text-sm"></i>
                             </button>
                           </div>
                         </div>
