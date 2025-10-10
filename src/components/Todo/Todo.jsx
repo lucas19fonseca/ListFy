@@ -953,7 +953,7 @@ export default function Todo() {
         {/* Header */}
         <div className="flex justify-between items-center p-3 sm:p-4 border-b border-gray-600">
           <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-            <i className="fa-solid fa-dove text-blue-400 text-base sm:text-lg"></i> 
+            <i className="fa-solid fa-dove text- text-base sm:text-lg"></i> 
             <span>ListFy</span>
           </h2>
           <div className="flex gap-1 sm:gap-2">
