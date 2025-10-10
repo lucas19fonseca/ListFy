@@ -27,8 +27,16 @@ export default function Todo() {
   const [filtro, setFiltro] = useState("incompletas");
   const [animando, setAnimando] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
+  
+  // Novos estados para melhorias
+  const [busca, setBusca] = useState("");
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem("darkMode");
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [ordenacao, setOrdenacao] = useState("recente");
 
-  // Adicionar estilo CSS para esconder scrollbar
+  // Adicionar estilo CSS
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -69,12 +77,17 @@ export default function Todo() {
       .animate-in {
         animation: slideIn 0.3s ease-out forwards;
       }
+
+      /* Dark mode transitions */
+      * {
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+      }
     `;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
 
-  // Salvar no localStorage com tratamento de erro
+  // Salvar no localStorage
   useEffect(() => {
     try {
       localStorage.setItem("listas", JSON.stringify(listas));
@@ -84,6 +97,16 @@ export default function Todo() {
     }
   }, [listas]);
 
+  // Salvar dark mode
+  useEffect(() => {
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
   // Salvar lista ativa
   useEffect(() => {
     if (listaAtiva) {
@@ -91,19 +114,136 @@ export default function Todo() {
     }
   }, [listaAtiva]);
 
-  // Definir lista ativa inicial se não houver uma
+  // Definir lista ativa inicial
   useEffect(() => {
     if (!listaAtiva && Object.keys(listas).length > 0) {
       setListaAtiva(Object.keys(listas)[0]);
+      setFiltro("lista");
     }
   }, [listas, listaAtiva]);
 
-  // Gerar ID único para tarefas
+  // Atalhos de teclado
+  useEffect(() => {
+    const handleKeyboard = (e) => {
+      // Ctrl + N = Nova tarefa
+      if (e.ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        if (filtro !== "incompletas" && filtro !== "concluidas" && filtro !== "importantes") {
+          setModalAberto(true);
+        }
+      }
+      // Ctrl + / = Focar busca
+      if (e.ctrlKey && e.key === '/') {
+        e.preventDefault();
+        document.getElementById('busca-input')?.focus();
+      }
+      // Escape = Fechar modal
+      if (e.key === 'Escape') {
+        setModalAberto(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyboard);
+    return () => document.removeEventListener('keydown', handleKeyboard);
+  }, [filtro]);
+
+  // Gerar ID único
   function gerarId() {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // Adicionar tarefa com validação melhorada
+  // Função para calcular estatísticas
+  function calcularEstatisticas() {
+    const todasTarefas = [];
+    Object.keys(listas).forEach(nomeLista => {
+      todasTarefas.push(...listas[nomeLista]);
+    });
+
+    const hoje = new Date().toDateString();
+    return {
+      total: todasTarefas.length,
+      incompletas: todasTarefas.filter(t => !t.concluida).length,
+      concluidas: todasTarefas.filter(t => t.concluida).length,
+      importantes: todasTarefas.filter(t => t.importante).length,
+      concluidasHoje: todasTarefas.filter(t => 
+        t.concluida && new Date(t.criadaEm).toDateString() === hoje
+      ).length
+    };
+  }
+
+  // Nova função para obter tarefas com busca e ordenação
+  function obterTarefasGlobais() {
+    let tarefas = [];
+    
+    // Buscar tarefas baseado no contexto
+    if (filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes") {
+      Object.keys(listas).forEach(nomeLista => {
+        listas[nomeLista].forEach((tarefa, index) => {
+          tarefas.push({
+            ...tarefa,
+            nomeLista,
+            indexOriginal: index,
+            listaOriginal: nomeLista
+          });
+        });
+      });
+
+      tarefas = tarefas.filter((tarefa) => {
+        if (filtro === "incompletas") return !tarefa.concluida;
+        if (filtro === "concluidas") return tarefa.concluida;
+        if (filtro === "importantes") return tarefa.importante;
+        return false;
+      });
+    } else {
+      tarefas = (listas[listaAtiva] || []).map((tarefa, index) => ({
+        ...tarefa,
+        nomeLista: listaAtiva,
+        indexOriginal: index,
+        listaOriginal: listaAtiva
+      }));
+    }
+
+    // Aplicar busca
+    if (busca.trim()) {
+      const termoBusca = busca.toLowerCase().trim();
+      tarefas = tarefas.filter(tarefa => 
+        tarefa.texto.toLowerCase().includes(termoBusca) ||
+        tarefa.descricao?.toLowerCase().includes(termoBusca) ||
+        tarefa.nomeLista.toLowerCase().includes(termoBusca)
+      );
+    }
+
+    // Aplicar ordenação
+    tarefas.sort((a, b) => {
+      switch (ordenacao) {
+        case "alfabetica":
+          return a.texto.localeCompare(b.texto);
+        case "prioridade":
+          const prioridades = { alta: 3, normal: 2, baixa: 1 };
+          return (prioridades[b.prioridade] || 2) - (prioridades[a.prioridade] || 2);
+        case "prazo":
+          if (!a.prazo && !b.prazo) return 0;
+          if (!a.prazo) return 1;
+          if (!b.prazo) return -1;
+          return new Date(a.prazo) - new Date(b.prazo);
+        case "recente":
+        default:
+          return new Date(b.criadaEm || 0) - new Date(a.criadaEm || 0);
+      }
+    });
+
+    return tarefas;
+  }
+
+  // Função para obter título
+  function obterTituloAtual() {
+    if (filtro === "incompletas") return "Incompletas";
+    if (filtro === "concluidas") return "Concluídas";
+    if (filtro === "importantes") return "Importantes";
+    return listaAtiva;
+  }
+
+  // Adicionar tarefa
   function adicionarTarefa() {
     const texto = novaTarefa.trim();
     
@@ -121,7 +261,6 @@ export default function Todo() {
 
     const link = novoLink.trim();
     
-    // Validação básica de URL se houver link
     if (link && !link.match(/^https?:\/\//)) {
       setMensagem("Link inválido! Use http:// ou https://");
       setTimeout(() => setMensagem(""), 3000);
@@ -155,7 +294,7 @@ export default function Todo() {
     setTimeout(() => setMensagem(""), 3000);
   }
 
-  // Adicionar tarefa rápida (sem modal)
+  // Adicionar tarefa rápida
   function adicionarTarefaRapida() {
     const texto = novaTarefa.trim();
     
@@ -193,30 +332,46 @@ export default function Todo() {
     setTimeout(() => setMensagem(""), 3000);
   }
 
-  // Remover tarefa
-  function removerTarefa(index) {
-    const novas = [...listas[listaAtiva]];
-    novas.splice(index, 1);
+  // Funções para operações em tarefas
+  function toggleConcluida(tarefa) {
+    const novas = [...listas[tarefa.listaOriginal]];
+    novas[tarefa.indexOriginal].concluida = !novas[tarefa.indexOriginal].concluida;
     setListas({
       ...listas,
-      [listaAtiva]: novas,
+      [tarefa.listaOriginal]: novas,
     });
   }
 
-  // Editar tarefa
-  function editarTarefa(index) {
-    const tarefaAtual = listas[listaAtiva][index];
-    const novoTexto = prompt("Edite a tarefa:", tarefaAtual.texto);
+  function toggleImportante(tarefa) {
+    const novas = [...listas[tarefa.listaOriginal]];
+    novas[tarefa.indexOriginal].importante = !novas[tarefa.indexOriginal].importante;
+    setListas({
+      ...listas,
+      [tarefa.listaOriginal]: novas,
+    });
+  }
+
+  function removerTarefa(tarefa) {
+    const novas = [...listas[tarefa.listaOriginal]];
+    novas.splice(tarefa.indexOriginal, 1);
+    setListas({
+      ...listas,
+      [tarefa.listaOriginal]: novas,
+    });
+  }
+
+  function editarTarefa(tarefa) {
+    const novoTexto = prompt("Edite a tarefa:", tarefa.texto);
     
     if (novoTexto && novoTexto.trim() !== "") {
-      const novas = [...listas[listaAtiva]];
-      novas[index] = {
-        ...novas[index],
+      const novas = [...listas[tarefa.listaOriginal]];
+      novas[tarefa.indexOriginal] = {
+        ...novas[tarefa.indexOriginal],
         texto: novoTexto.trim(),
       };
       setListas({
         ...listas,
-        [listaAtiva]: novas,
+        [tarefa.listaOriginal]: novas,
       });
     }
   }
@@ -246,6 +401,7 @@ export default function Todo() {
         [nome.trim()]: [],
       });
       setListaAtiva(nome.trim());
+      setFiltro("lista");
     } else if (listas[nome?.trim()]) {
       setMensagem("Já existe uma lista com este nome!");
       setTimeout(() => setMensagem(""), 3000);
@@ -269,26 +425,6 @@ export default function Todo() {
     setSidebarAberta(!sidebarAberta);
   }
 
-  // Toggle concluída
-  function toggleConcluida(index) {
-    const novas = [...listas[listaAtiva]];
-    novas[index].concluida = !novas[index].concluida;
-    setListas({
-      ...listas,
-      [listaAtiva]: novas,
-    });
-  }
-
-  // Toggle importante
-  function toggleImportante(index) {
-    const novas = [...listas[listaAtiva]];
-    novas[index].importante = !novas[index].importante;
-    setListas({
-      ...listas,
-      [listaAtiva]: novas,
-    });
-  }
-
   // Mudar filtro com animação
   function mudarFiltro(novoFiltro) {
     if (novoFiltro === filtro) return;
@@ -302,7 +438,7 @@ export default function Todo() {
     }, 200);
   }
 
-  // Verificar se prazo está próximo
+  // Verificar prazo
   function verificarPrazo(prazo) {
     if (!prazo) return false;
     const hoje = new Date();
@@ -312,19 +448,41 @@ export default function Todo() {
     return dias <= 2 && dias >= 0;
   }
 
+  // Export de dados
+  function exportarDados() {
+    const dados = {
+      listas,
+      exportadoEm: new Date().toISOString(),
+      versao: "1.0"
+    };
+    
+    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `listfy-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    setMensagem("Backup exportado com sucesso!");
+    setTimeout(() => setMensagem(""), 3000);
+  }
+
   // ========== RENDERIZAÇÃO ==========
 
   const temLista = Object.keys(listas).length > 0;
+  const tarefasFiltradas = obterTarefasGlobais();
+  const stats = calcularEstatisticas();
 
-  const tarefasFiltradas = listas[listaAtiva]?.filter((tarefa) => {
-    if (filtro === "incompletas") return !tarefa.concluida;
-    if (filtro === "concluidas") return tarefa.concluida;
-    if (filtro === "importantes") return tarefa.importante;
-    return false;
-  });
+  // Classes para dark mode
+  const bgPrimary = darkMode ? "bg-gray-900" : "bg-[#5e5e5e5e]";
+  const bgSecondary = darkMode ? "bg-gray-800" : "bg-white";
+  const textPrimary = darkMode ? "text-white" : "text-gray-900";
+  const textSecondary = darkMode ? "text-gray-300" : "text-gray-600";
+  const border = darkMode ? "border-gray-600" : "border-gray-300";
 
   return (
-    <div className="flex h-screen relative">
+    <div className={`flex h-screen relative ${darkMode ? 'dark bg-gray-900' : 'bg-[#5e5e5e5e]'}`}>
       {/* Overlay mobile */}
       {sidebarAberta && (
         <div
@@ -336,12 +494,12 @@ export default function Todo() {
       {/* Modal de adicionar tarefa detalhada */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+          <div className={`${bgSecondary} ${textPrimary} rounded-lg p-6 max-w-2xl w-full`}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Nova Tarefa</h2>
               <button
                 onClick={() => setModalAberto(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className={`${textSecondary} hover:${textPrimary} text-2xl`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
@@ -355,7 +513,7 @@ export default function Todo() {
                   value={novaTarefa}
                   onChange={(e) => setNovaTarefa(e.target.value)}
                   placeholder="Ex: Estudar React"
-                  className="w-full p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
+                  className={`w-full p-3 border ${border} rounded focus:border-blue-500 focus:outline-none ${bgSecondary} ${textPrimary}`}
                 />
               </div>
 
@@ -365,7 +523,7 @@ export default function Todo() {
                   value={novaDescricao}
                   onChange={(e) => setNovaDescricao(e.target.value)}
                   placeholder="Adicione detalhes sobre a tarefa..."
-                  className="w-full p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none h-24 resize-none"
+                  className={`w-full p-3 border ${border} rounded focus:border-blue-500 focus:outline-none h-24 resize-none ${bgSecondary} ${textPrimary}`}
                 />
               </div>
 
@@ -376,7 +534,7 @@ export default function Todo() {
                   value={novoLink}
                   onChange={(e) => setNovoLink(e.target.value)}
                   placeholder="https://exemplo.com"
-                  className="w-full p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
+                  className={`w-full p-3 border ${border} rounded focus:border-blue-500 focus:outline-none ${bgSecondary} ${textPrimary}`}
                 />
               </div>
 
@@ -387,7 +545,7 @@ export default function Todo() {
                     type="date"
                     value={prazo}
                     onChange={(e) => setPrazo(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
+                    className={`w-full p-3 border ${border} rounded focus:border-blue-500 focus:outline-none ${bgSecondary} ${textPrimary}`}
                   />
                 </div>
 
@@ -396,7 +554,7 @@ export default function Todo() {
                   <select
                     value={prioridade}
                     onChange={(e) => setPrioridade(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
+                    className={`w-full p-3 border ${border} rounded focus:border-blue-500 focus:outline-none ${bgSecondary} ${textPrimary}`}
                   >
                     <option value="baixa">Baixa</option>
                     <option value="normal">Normal</option>
@@ -414,7 +572,7 @@ export default function Todo() {
                 </button>
                 <button
                   onClick={() => setModalAberto(false)}
-                  className="px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 transition"
+                  className={`px-4 py-3 border ${border} rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition`}
                 >
                   Cancelar
                 </button>
@@ -424,122 +582,207 @@ export default function Todo() {
         </div>
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar estilo Claude */}
       <div
         className={`
-          fixed md:static top-0 left-0 h-full w-64 bg-[#3A3A3A] text-white p-6 shadow-2xl z-50 transition-transform duration-300 ease-in-out
+          fixed md:static top-0 left-0 h-full w-64 bg-[#2f2f2f] text-white shadow-2xl z-50 transition-transform duration-300 ease-in-out
           ${sidebarAberta ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0 md:w-64 flex flex-col gap-2.5
+          md:translate-x-0 md:w-64 flex flex-col
         `}
       >
-        <div className="flex justify-between items-center mb-4 md:mb-0">
-          <h2 className="text-2xl font-bold">
-            <i className="fa-solid fa-dove"></i> ListFy
+        {/* Header */}
+        <div className="flex justify-between items-center p-4 border-b border-gray-600">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <i className="fa-solid fa-dove text-blue-400"></i> 
+            <span>ListFy</span>
           </h2>
-          <button
-            className="md:hidden text-white hover:opacity-70"
-            onClick={toggleSidebar}
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex gap-2">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="text-gray-400 hover:text-white transition p-2 rounded"
+              title="Toggle Dark Mode"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+              <i className={`fa-solid ${darkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+            </button>
+            <button
+              className="md:hidden text-gray-400 hover:text-white transition p-2 rounded"
+              onClick={toggleSidebar}
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </div>
 
-        {/* Filtros */}
-        <nav className="flex flex-col gap-3 mt-4">
-          <button 
-            onClick={() => mudarFiltro("incompletas")} 
-            className={`text-left transition duration-300 p-3 rounded ${
-              filtro === "incompletas" 
-                ? "bg-white text-[#3A3A3A] font-bold shadow-lg" 
-                : "hover:bg-[#4a4a4a]"
-            }`}
-          >
-            <i className="fa-solid fa-clock mr-2"></i> Incompletas
-          </button>
-          <button 
-            onClick={() => mudarFiltro("concluidas")} 
-            className={`text-left transition duration-300 p-3 rounded ${
-              filtro === "concluidas" 
-                ? "bg-white text-[#3A3A3A] font-bold shadow-lg" 
-                : "hover:bg-[#4a4a4a]"
-            }`}
-          >
-            <i className="fa-solid fa-check mr-2"></i> Concluídas
-          </button>
-          <button 
-            onClick={() => mudarFiltro("importantes")} 
-            className={`text-left transition duration-300 p-3 rounded ${
-              filtro === "importantes" 
-                ? "bg-white text-[#3A3A3A] font-bold shadow-lg" 
-                : "hover:bg-[#4a4a4a]"
-            }`}
-          >
-            <i className="fa-solid fa-exclamation-triangle mr-2"></i> Importantes
-          </button>
-        </nav>
-
-        {/* Criar lista */}
-        <nav className="flex flex-col gap-4 mt-6">
+        {/* Ações principais */}
+        <div className="p-4 space-y-2">
           <button
             onClick={criarLista}
-            className="text-left hover:opacity-65 transition duration-200"
+            className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200"
           >
-            <i className="fa-solid fa-pencil fa-xs mr-2"></i> Criar nova lista
+            <i className="fa-solid fa-plus text-lg"></i>
+            <span>Nova lista</span>
           </button>
-        </nav>
+          
+          <div className="relative">
+            <input
+              id="busca-input"
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar tarefas..."
+              className="w-full bg-gray-700 text-white placeholder-gray-400 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
 
+          {temLista && (
+            <button
+              onClick={exportarDados}
+              className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200"
+              title="Backup dos dados"
+            >
+              <i className="fa-solid fa-download text-lg"></i>
+              <span>Exportar dados</span>
+            </button>
+          )}
+        </div>
+
+        {/* Filtros/Categorias */}
+        <div className="px-4 mb-4">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Categorias</h3>
+          <div className="space-y-1">
+            <button 
+              onClick={() => mudarFiltro("incompletas")} 
+              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+                filtro === "incompletas" 
+                  ? "bg-blue-600 text-white shadow-lg" 
+                  : "text-gray-300 hover:text-white hover:bg-gray-700"
+              }`}
+            >
+              <i className="fa-solid fa-clock text-lg"></i>
+              <span>Incompletas</span>
+              <span className="ml-auto text-sm bg-gray-600 px-2 py-1 rounded">{stats.incompletas}</span>
+            </button>
+            
+            <button 
+              onClick={() => mudarFiltro("concluidas")} 
+              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+                filtro === "concluidas" 
+                  ? "bg-green-600 text-white shadow-lg" 
+                  : "text-gray-300 hover:text-white hover:bg-gray-700"
+              }`}
+            >
+              <i className="fa-solid fa-check text-lg"></i>
+              <span>Concluídas</span>
+              <span className="ml-auto text-sm bg-gray-600 px-2 py-1 rounded">{stats.concluidas}</span>
+            </button>
+            
+            <button 
+              onClick={() => mudarFiltro("importantes")} 
+              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+                filtro === "importantes" 
+                  ? "bg-yellow-600 text-white shadow-lg" 
+                  : "text-gray-300 hover:text-white hover:bg-gray-700"
+              }`}
+            >
+              <i className="fa-solid fa-star text-lg"></i>
+              <span>Importantes</span>
+              <span className="ml-auto text-sm bg-gray-600 px-2 py-1 rounded">{stats.importantes}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Listas - com prioridade */}
         {temLista && (
-          <div className="flex flex-col text-white pt-8 mt-8 flex-1 overflow-y-auto">
-            <span className="text-[17px] font-light opacity-50 mb-3">
-              Listas
-            </span>
-            <nav className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-1 scrollbar-hide">
+          <div className="flex-1 px-4 overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Minhas Listas</h3>
+              <select
+                value={ordenacao}
+                onChange={(e) => setOrdenacao(e.target.value)}
+                className="text-xs bg-gray-700 text-gray-300 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="recente">Recente</option>
+                <option value="alfabetica">A-Z</option>
+                <option value="prioridade">Prioridade</option>
+                <option value="prazo">Prazo</option>
+              </select>
+            </div>
+            
+            <div className="space-y-1 overflow-y-auto max-h-[400px] scrollbar-hide pb-4">
               {Object.keys(listas).map((nome) => (
-                <div key={nome} className="flex justify-between items-center">
+                <div key={nome} className="group">
                   <button
-                    onClick={() => setListaAtiva(nome)}
-                    className={`text-left flex-1 transition duration-200 ${
-                      listaAtiva === nome
-                        ? "font-bold text-white-500"
-                        : "hover:opacity-65"
+                    onClick={() => {
+                      setListaAtiva(nome);
+                      setFiltro("lista");
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${
+                      listaAtiva === nome && filtro === "lista"
+                        ? "bg-gray-700 text-white border-l-4 border-blue-500"
+                        : "text-gray-300 hover:text-white hover:bg-gray-700"
                     }`}
                   >
-                    {nome}
-                  </button>
-                  <button
-                    onClick={() => removerLista(nome)}
-                    className="text-red-500 hover:text-red-700 ml-2"
-                    title="Excluir lista"
-                  >
-                    <i className="fa-solid fa-trash"></i>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <i className="fa-solid fa-list text-sm"></i>
+                      <span className="truncate">{nome}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-gray-600 px-2 py-1 rounded">
+                        {listas[nome].length}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removerLista(nome);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all duration-200 p-1"
+                        title="Excluir lista"
+                      >
+                        <i className="fa-solid fa-trash text-xs"></i>
+                      </button>
+                    </div>
                   </button>
                 </div>
               ))}
-            </nav>
+            </div>
+          </div>
+        )}
+
+        {/* Estatísticas no Footer */}
+        {temLista && (
+          <div className="mt-auto border-t border-gray-600 p-2 bg-gray-800">
+            <h3 className="text-[10px] font-semibold mb-2 text-gray-400 uppercase tracking-wider">Estatísticas</h3>
+            <div className="flex justify-between gap-2 text-xs">
+              <div className="text-center">
+                <div className="font-bold text-sm text-blue-400">{stats.incompletas}</div>
+                <div className="text-gray-400 text-[9px]">Pendentes</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-sm text-green-400">{stats.concluidas}</div>
+                <div className="text-gray-400 text-[9px]">Concluídas</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-sm text-yellow-400">{stats.importantes}</div>
+                <div className="text-gray-400 text-[9px]">Importantes</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-sm text-purple-400">{stats.concluidasHoje}</div>
+                <div className="text-gray-400 text-[9px]">Hoje</div>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
       {/* Área principal */}
-      <div className="flex-1 bg-[#5e5e5e5e] p-4 md:p-8 w-full md:w-auto flex justify-center items-start md:items-start overflow-y-auto">
+      <div className={`flex-1 ${bgPrimary} p-4 md:p-8 w-full md:w-auto flex justify-center items-start md:items-start overflow-y-auto`}>
         {!temLista ? (
           <div className="flex flex-col justify-center items-center text-center w-full h-full">
-            <h1 className="text-2xl md:text-3xl font-bold mb-4">
+            <h1 className={`text-2xl md:text-3xl font-bold mb-4 ${textPrimary}`}>
               Nenhuma lista criada
             </h1>
-            <p className="mb-6 text-gray-700">
+            <p className={`mb-6 ${textSecondary}`}>
               Crie sua primeira lista para começar a adicionar tarefas!
             </p>
             <button
@@ -551,92 +794,131 @@ export default function Todo() {
           </div>
         ) : (
           <div className="w-full h-full flex flex-col max-w-5xl mx-auto">
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-6">
-              <button
-                className="md:hidden bg-[#3A3A3A] text-white p-2 rounded hover:bg-[#4e4e4e] transition duration-200"
-                onClick={toggleSidebar}
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {/* Header com busca e ordenação */}
+            <div className="flex flex-col gap-4 mb-6">
+              <div className="flex items-center gap-4">
+                <button
+                  className="md:hidden bg-[#3A3A3A] text-white p-2 rounded hover:bg-[#4e4e4e] transition duration-200"
+                  onClick={toggleSidebar}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <h1 className={`text-3xl md:text-4xl font-bold ${textPrimary}`}>{obterTituloAtual()}</h1>
+              </div>
+              
+              {/* Barra de busca e ordenação */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <input
+                    id="busca-input"
+                    type="text"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Buscar tarefas... (Ctrl + /)"
+                    className={`w-full p-3 pl-10 border ${border} rounded focus:border-blue-500 focus:outline-none ${bgSecondary} ${textPrimary}`}
                   />
-                </svg>
-              </button>
-              <h1 className="text-3xl md:text-4xl font-bold">{listaAtiva}</h1>
+                  <i className={`fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 ${textSecondary}`}></i>
+                </div>
+                <select
+                  value={ordenacao}
+                  onChange={(e) => setOrdenacao(e.target.value)}
+                  className={`p-3 border ${border} rounded focus:border-blue-500 focus:outline-none ${bgSecondary} ${textPrimary}`}
+                >
+                  <option value="recente">Mais recente</option>
+                  <option value="alfabetica">A-Z</option>
+                  <option value="prioridade">Prioridade</option>
+                  <option value="prazo">Prazo</option>
+                </select>
+              </div>
             </div>
 
-            {/* Adicionar tarefa - Nova interface */}
-            <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={novaTarefa}
-                  onChange={(e) => setNovaTarefa(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && adicionarTarefaRapida()}
-                  placeholder="Adicionar nova tarefa..."
-                  className="flex-1 p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none text-base"
-                />
-                <button
-                  onClick={adicionarTarefaRapida}
-                  className="bg-[#3A3A3A] text-white px-6 rounded hover:bg-[#4e4e4e] transition whitespace-nowrap"
-                  title="Adicionar tarefa rápida"
-                >
-                  <i className="fa-solid fa-plus"></i>
-                </button>
-                <button
-                  onClick={() => setModalAberto(true)}
-                  className="bg-blue-600 text-white px-6 rounded hover:bg-blue-700 transition whitespace-nowrap"
-                  title="Adicionar tarefa detalhada"
-                >
-                  <i className="fa-solid fa-list-check"></i>
-                </button>
-                <button
-                  onClick={limparTudo}
-                  className="bg-red-600 text-white px-6 rounded hover:bg-red-700 transition whitespace-nowrap"
-                  title="Limpar todas as tarefas"
-                >
-                  <i className="fa-solid fa-trash"></i>
-                </button>
+            {/* Área de visualização - mantendo CSS original */}
+            {filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes" ? (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="text-blue-600 dark:text-blue-400 text-2xl">
+                    <i className="fa-solid fa-info-circle"></i>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                      Área de visualização - {obterTituloAtual()}
+                    </h3>
+                    <p className="text-blue-700 dark:text-blue-400 text-sm">
+                      Para adicionar novas tarefas, selecione uma lista específica na barra lateral.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                <i className="fa-solid fa-lightbulb mr-1"></i>
-                Pressione Enter para adicionar rapidamente ou clique em <i className="fa-solid fa-list-check mx-1"></i> para adicionar com mais detalhes
-              </p>
-            </div>
+            ) : (
+              <div className={`${bgSecondary} rounded-lg shadow-md p-4 mb-6`}>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={novaTarefa}
+                    onChange={(e) => setNovaTarefa(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && adicionarTarefaRapida()}
+                    placeholder="Adicionar nova tarefa..."
+                    className={`flex-1 p-3 border ${border} rounded focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                  />
+                  <button
+                    onClick={adicionarTarefaRapida}
+                    className="bg-[#3A3A3A] text-white px-6 rounded hover:bg-[#4e4e4e] transition whitespace-nowrap"
+                    title="Adicionar tarefa rápida"
+                  >
+                    <i className="fa-solid fa-plus"></i>
+                  </button>
+                  <button
+                    onClick={() => setModalAberto(true)}
+                    className="bg-blue-600 text-white px-6 rounded hover:bg-blue-700 transition whitespace-nowrap"
+                    title="Adicionar tarefa detalhada (Ctrl + N)"
+                  >
+                    <i className="fa-solid fa-list-check"></i>
+                  </button>
+                  <button
+                    onClick={limparTudo}
+                    className="bg-red-600 text-white px-6 rounded hover:bg-red-700 transition whitespace-nowrap"
+                    title="Limpar todas as tarefas"
+                  >
+                    <i className="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+                <p className={`text-xs ${textSecondary} mt-2`}>
+                  <i className="fa-solid fa-lightbulb mr-1"></i>
+                  Enter para adicionar • <i className="fa-solid fa-list-check mx-1"></i> para detalhes • Ctrl+N para nova tarefa
+                </p>
+              </div>
+            )}
 
             <p
               className={`mb-4 font-medium text-sm md:text-base ${
-                mensagem.includes("sucesso") ? "text-green-700" : "text-red-500"
+                mensagem.includes("sucesso") ? "text-green-700 dark:text-green-400" : "text-red-500 dark:text-red-400"
               }`}
             >
               {mensagem}
             </p>
 
-            {/* Lista de tarefas com animação */}
+            {/* Lista de tarefas */}
             <div className={animando ? "animate-out" : "animate-in"}>
               {tarefasFiltradas?.length === 0 ? (
                 <div className="text-center py-16">
-                  <div className="text-6xl mb-4 opacity-20">
+                  <div className={`text-6xl mb-4 opacity-20 ${textSecondary}`}>
                     <i className="fa-solid fa-clipboard-list"></i>
                   </div>
-                  <p className="text-gray-500 text-lg mb-2">Nenhuma tarefa encontrada</p>
-                  <p className="text-sm text-gray-400">Adicione uma nova tarefa ou altere o filtro!</p>
+                  <p className={`${textSecondary} text-lg mb-2`}>
+                    {busca.trim() ? "Nenhuma tarefa encontrada para sua busca" : "Nenhuma tarefa encontrada"}
+                  </p>
+                  <p className={`text-sm ${textSecondary} opacity-75`}>
+                    {busca.trim() ? "Tente buscar por outros termos" : "Adicione uma nova tarefa ou altere o filtro!"}
+                  </p>
                 </div>
               ) : (
                 <ul className="space-y-3 pb-8">
                   {tarefasFiltradas.map((tarefa, index) => (
                     <li
                       key={tarefa.id || index}
-                      className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-4 border-l-4 ${
+                      className={`${bgSecondary} rounded-lg shadow-sm hover:shadow-md transition-shadow p-4 border-l-4 ${
                         tarefa.prioridade === "alta"
                           ? "border-red-500"
                           : tarefa.prioridade === "baixa"
@@ -645,13 +927,12 @@ export default function Todo() {
                       }`}
                     >
                       <div className="flex flex-col gap-3">
-                        {/* Cabeçalho da tarefa */}
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3 flex-1">
                             <button
-                              onClick={() => toggleConcluida(index)}
+                              onClick={() => toggleConcluida(tarefa)}
                               className={`mt-1 ${
-                                tarefa.concluida ? "text-green-600" : "text-gray-400 hover:text-green-600"
+                                tarefa.concluida ? "text-green-600" : `${textSecondary} hover:text-green-600`
                               }`}
                             >
                               <i className={`fa-${tarefa.concluida ? "solid" : "regular"} fa-circle-check text-xl`}></i>
@@ -660,11 +941,18 @@ export default function Todo() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span
                                   className={`text-base font-medium ${
-                                    tarefa.concluida ? "line-through text-gray-400" : ""
+                                    tarefa.concluida ? `line-through ${textSecondary}` : textPrimary
                                   }`}
                                 >
                                   {tarefa.texto}
                                 </span>
+                                
+                                {(filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes") && (
+                                  <span className={`text-xs ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'} px-2 py-1 rounded`}>
+                                    {tarefa.nomeLista}
+                                  </span>
+                                )}
+                                
                                 {tarefa.importante && (
                                   <span className="text-yellow-500 text-sm">
                                     <i className="fa-solid fa-star"></i>
@@ -674,8 +962,8 @@ export default function Todo() {
                                   <span
                                     className={`text-xs px-2 py-1 rounded ${
                                       tarefa.prioridade === "alta"
-                                        ? "bg-red-100 text-red-700"
-                                        : "bg-green-100 text-green-700"
+                                        ? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
+                                        : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
                                     }`}
                                   >
                                     {tarefa.prioridade === "alta" ? "Alta" : "Baixa"}
@@ -684,7 +972,7 @@ export default function Todo() {
                               </div>
                               
                               {tarefa.descricao && (
-                                <p className="text-sm text-gray-600 mt-1">{tarefa.descricao}</p>
+                                <p className={`text-sm ${textSecondary} mt-1`}>{tarefa.descricao}</p>
                               )}
 
                               <div className="flex flex-wrap gap-3 mt-2">
@@ -693,7 +981,7 @@ export default function Todo() {
                                     href={tarefa.link}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-blue-600 text-sm hover:underline flex items-center gap-1"
+                                    className="text-blue-600 dark:text-blue-400 text-sm hover:underline flex items-center gap-1"
                                   >
                                     <i className="fa-solid fa-link"></i> Link anexado
                                   </a>
@@ -702,8 +990,8 @@ export default function Todo() {
                                   <span
                                     className={`text-sm flex items-center gap-1 ${
                                       verificarPrazo(tarefa.prazo)
-                                        ? "text-red-600 font-semibold"
-                                        : "text-gray-600"
+                                        ? "text-red-600 dark:text-red-400 font-semibold"
+                                        : textSecondary
                                     }`}
                                   >
                                     <i className="fa-solid fa-calendar"></i>
@@ -715,27 +1003,26 @@ export default function Todo() {
                             </div>
                           </div>
 
-                          {/* Ações */}
                           <div className="flex gap-1">
                             <button
-                              onClick={() => toggleImportante(index)}
-                              className={`p-2 rounded hover:bg-gray-100 ${
-                                tarefa.importante ? "text-yellow-500" : "text-gray-400"
+                              onClick={() => toggleImportante(tarefa)}
+                              className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                                tarefa.importante ? "text-yellow-500" : textSecondary
                               }`}
                               title="Marcar como importante"
                             >
                               <i className="fa-solid fa-star"></i>
                             </button>
                             <button
-                              onClick={() => editarTarefa(index)}
-                              className="p-2 rounded hover:bg-gray-100 text-gray-600"
+                              onClick={() => editarTarefa(tarefa)}
+                              className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${textSecondary}`}
                               title="Editar"
                             >
                               <i className="fa-solid fa-pencil"></i>
                             </button>
                             <button
-                              onClick={() => removerTarefa(index)}
-                              className="p-2 rounded hover:bg-red-50 text-red-600"
+                              onClick={() => removerTarefa(tarefa)}
+                              className="p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
                               title="Remover"
                             >
                               <i className="fa-solid fa-trash"></i>
