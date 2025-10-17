@@ -39,6 +39,7 @@ export default function Todo() {
   const [listaExcluindo, setListaExcluindo] = useState("");
   const [codigoSync, setCodigoSync] = useState("");
   const [codigoImportar, setCodigoImportar] = useState("");
+  const [codigoVisual, setCodigoVisual] = useState("");
   const [abaSyncAtiva, setAbaSyncAtiva] = useState("gerar"); // "gerar" ou "importar"
   
   // Novos estados para melhorias
@@ -630,6 +631,15 @@ export default function Todo() {
       
       const jsonString = JSON.stringify(dados);
       const codigoBase64 = btoa(unescape(encodeURIComponent(jsonString)));
+      
+      // Gerar código visual de 4 caracteres
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sem caracteres ambíguos
+      let visual = '';
+      for (let i = 0; i < 4; i++) {
+        visual += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      
+      setCodigoVisual(visual);
       setCodigoSync(codigoBase64);
       setMensagem("Código gerado com sucesso!");
       setTimeout(() => setMensagem(""), 3000);
@@ -1006,8 +1016,8 @@ export default function Todo() {
 
       {/* Modal de sincronização */}
       {modalSyncAberto && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl shadow-2xl border ${border} animate-in`}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl my-8 shadow-2xl border ${border} animate-in`}>
             <div className={`flex items-center justify-between p-6 border-b ${border}`}>
               <h2 className="text-2xl font-bold">Sincronizar Dispositivos</h2>
               <button
@@ -1015,6 +1025,7 @@ export default function Todo() {
                   setModalSyncAberto(false);
                   setCodigoSync("");
                   setCodigoImportar("");
+                  setCodigoVisual("");
                 }}
                 className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
               >
@@ -1059,7 +1070,7 @@ export default function Todo() {
                         <p className="font-medium mb-1">Como funciona:</p>
                         <ol className="list-decimal list-inside space-y-1 text-xs">
                           <li>Clique em "Gerar Código" para criar um código com suas listas</li>
-                          <li>Copie o código gerado</li>
+                          <li>Copie o código completo clicando no botão</li>
                           <li>No outro dispositivo, cole o código na aba "Importar Código"</li>
                         </ol>
                       </div>
@@ -1075,28 +1086,50 @@ export default function Todo() {
                       Gerar Código de Sincronização
                     </button>
                   ) : (
-                    <div className="space-y-3">
-                      <label className="block text-sm font-medium">Código gerado:</label>
-                      <div className="relative">
-                        <textarea
-                          value={codigoSync}
-                          readOnly
-                          className={`w-full p-3 border ${border} rounded-lg text-xs font-mono ${bgSecondary} ${textPrimary} h-32 resize-none`}
-                        />
+                    <div className="space-y-4">
+                      {/* Código Visual Grande */}
+                      <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-8 text-center">
+                        <p className="text-white/80 text-sm mb-2">Código de Identificação</p>
+                        <div className="text-6xl font-bold text-white tracking-widest font-mono">
+                          {codigoVisual}
+                        </div>
+                        <p className="text-white/60 text-xs mt-3">
+                          <i className="fa-solid fa-info-circle mr-1"></i>
+                          Este é apenas um identificador visual
+                        </p>
                       </div>
+
+                      {/* Detalhes */}
+                      <div className={`${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-lg p-4`}>
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className={textSecondary}>Total de listas:</span>
+                          <span className="font-semibold">{Object.keys(listas).length}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className={textSecondary}>Total de tarefas:</span>
+                          <span className="font-semibold">
+                            {Object.values(listas).reduce((acc, lista) => acc + lista.length, 0)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Botões */}
                       <div className="flex gap-3">
                         <button
                           onClick={copiarCodigo}
                           className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition font-medium text-base flex items-center justify-center gap-2"
                         >
                           <i className="fa-solid fa-copy"></i>
-                          Copiar Código
+                          Copiar Código Completo
                         </button>
                         <button
-                          onClick={() => setCodigoSync("")}
+                          onClick={() => {
+                            setCodigoSync("");
+                            setCodigoVisual("");
+                          }}
                           className={`px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
                         >
-                          Gerar Novo
+                          <i className="fa-solid fa-rotate-right"></i>
                         </button>
                       </div>
                     </div>
@@ -1118,11 +1151,11 @@ export default function Todo() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">Cole o código aqui:</label>
+                    <label className="block text-sm font-medium mb-2">Cole o código completo aqui:</label>
                     <textarea
                       value={codigoImportar}
                       onChange={(e) => setCodigoImportar(e.target.value)}
-                      placeholder="Cole o código de sincronização..."
+                      placeholder="Cole o código de sincronização completo aqui..."
                       className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-xs font-mono ${bgSecondary} ${textPrimary} h-32 resize-none`}
                     />
                   </div>
@@ -1264,6 +1297,7 @@ export default function Todo() {
                   setAbaSyncAtiva("gerar");
                   setCodigoSync("");
                   setCodigoImportar("");
+                  setCodigoVisual("");
                 }}
                 className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200"
                 title="Sincronizar dispositivos"
