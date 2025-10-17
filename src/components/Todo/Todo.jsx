@@ -40,7 +40,7 @@ export default function Todo() {
   const [listaExcluindo, setListaExcluindo] = useState("");
   const [codigoSync, setCodigoSync] = useState("");
   const [codigoImportar, setCodigoImportar] = useState("");
-  const [abaSyncAtiva, setAbaSyncAtiva] = useState("gerar"); // "gerar" ou "importar"
+  const [abaSyncAtiva, setAbaSyncAtiva] = useState("gerar");
   
   // Novos estados para melhorias
   const [busca, setBusca] = useState("");
@@ -670,7 +670,6 @@ export default function Todo() {
         throw new Error("Código inválido");
       }
 
-      // Abre o modal de confirmação
       setModalConfirmarImportacao(true);
     } catch (error) {
       console.error("Erro ao importar código:", error);
@@ -738,7 +737,7 @@ export default function Todo() {
 
       {/* Modal de renomear lista */}
       {modalRenomearListaAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
           <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Renomear Lista</h2>
@@ -793,7 +792,7 @@ export default function Todo() {
 
       {/* Modal de criar lista */}
       {modalCriarListaAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
           <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Nova Lista</h2>
@@ -846,7 +845,7 @@ export default function Todo() {
 
       {/* Modal de adicionar tarefa detalhada */}
       {modalAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
           <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Nova Tarefa</h2>
@@ -937,7 +936,7 @@ export default function Todo() {
 
       {/* Modal de editar tarefa */}
       {modalEditarAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
           <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Editar Tarefa</h2>
@@ -1034,7 +1033,7 @@ export default function Todo() {
 
       {/* Modal de confirmação de importação */}
       {modalConfirmarImportacao && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
           <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} animate-in`}>
             <div className={`flex items-start gap-4 p-6 border-b ${border}`}>
               <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -1042,7 +1041,7 @@ export default function Todo() {
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-bold mb-1">Importar Listas</h2>
-                <p className={`text-sm ${textSecondary}`}>
+                <p className={`text-sm ${textPrimary}`}>
                   Deseja importar as listas? Isso substituirá suas listas atuais.
                 </p>
               </div>
@@ -1058,7 +1057,7 @@ export default function Todo() {
               <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
                 <div className="flex items-start gap-3">
                   <i className="fa-solid fa-triangle-exclamation text-yellow-600 dark:text-yellow-400 text-sm mt-0.5"></i>
-                  <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                  <p className="text-sm text-yellow-900 dark:text-yellow-100">
                     <strong>Atenção:</strong> Todas as suas listas e tarefas atuais serão substituídas pelos dados importados. Esta ação não pode ser desfeita.
                   </p>
                 </div>
@@ -1085,7 +1084,7 @@ export default function Todo() {
 
       {/* Modal de sincronização */}
       {modalSyncAberto && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto md:pl-72 lg:pl-80">
           <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl my-8 shadow-2xl border ${border} animate-in`}>
             <div className={`flex items-center justify-between p-6 border-b ${border}`}>
               <h2 className="text-2xl font-bold">Sincronizar Dispositivos</h2>
@@ -1101,7 +1100,6 @@ export default function Todo() {
               </button>
             </div>
 
-            {/* Abas */}
             <div className="flex border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setAbaSyncAtiva("gerar")}
@@ -1128,15 +1126,14 @@ export default function Todo() {
             </div>
 
             <div className="p-6">
-              {/* Aba Gerar Código */}
               {abaSyncAtiva === "gerar" && (
                 <div className="space-y-4">
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <i className="fa-solid fa-info-circle text-blue-600 dark:text-blue-400 text-lg mt-0.5"></i>
-                      <div className="text-sm text-blue-800 dark:text-blue-300">
+                      <div className="text-sm text-blue-900 dark:text-blue-100">
                         <p className="font-medium mb-1">Como funciona:</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-blue-800 dark:text-blue-200">
                           <li>Clique em "Gerar Código" abaixo</li>
                           <li>Copie o código completo que aparecer</li>
                           <li>No outro dispositivo, cole na aba "Importar Código"</li>
@@ -1155,7 +1152,6 @@ export default function Todo() {
                     </button>
                   ) : (
                     <div className="space-y-4">
-                      {/* Estatísticas */}
                       <div className={`${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-lg p-4`}>
                         <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Dados a sincronizar:</p>
                         <div className="flex items-center justify-around">
@@ -1173,7 +1169,6 @@ export default function Todo() {
                         </div>
                       </div>
 
-                      {/* Código */}
                       <div>
                         <label className="block text-sm font-medium mb-2">Código gerado:</label>
                         <textarea
@@ -1183,7 +1178,6 @@ export default function Todo() {
                         />
                       </div>
 
-                      {/* Botões */}
                       <div className="flex gap-3">
                         <button
                           onClick={copiarCodigo}
@@ -1205,15 +1199,14 @@ export default function Todo() {
                 </div>
               )}
 
-              {/* Aba Importar Código */}
               {abaSyncAtiva === "importar" && (
                 <div className="space-y-4">
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <i className="fa-solid fa-triangle-exclamation text-yellow-600 dark:text-yellow-400 text-lg mt-0.5"></i>
-                      <div className="text-sm text-yellow-800 dark:text-yellow-300">
+                      <div className="text-sm text-yellow-900 dark:text-yellow-100">
                         <p className="font-medium mb-1">Atenção:</p>
-                        <p className="text-xs">Importar um código substituirá todas as suas listas atuais. Exporte um backup antes se necessário.</p>
+                        <p className="text-xs text-yellow-800 dark:text-yellow-200">Importar um código substituirá todas as suas listas atuais. Exporte um backup antes se necessário.</p>
                       </div>
                     </div>
                   </div>
@@ -1249,7 +1242,7 @@ export default function Todo() {
 
       {/* Modal de excluir lista */}
       {modalExcluirListaAberto && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
           <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} animate-in`}>
             <div className={`flex items-start gap-4 p-6 border-b ${border}`}>
               <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
@@ -1276,7 +1269,7 @@ export default function Todo() {
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
                 <div className="flex items-start gap-3">
                   <i className="fa-solid fa-info-circle text-red-600 dark:text-red-400 text-sm mt-0.5"></i>
-                  <p className="text-sm text-red-800 dark:text-red-300">
+                  <p className="text-sm text-red-900 dark:text-red-100">
                     Esta ação não pode ser desfeita. Todas as tarefas desta lista serão permanentemente excluídas.
                   </p>
                 </div>
@@ -1304,7 +1297,7 @@ export default function Todo() {
         </div>
       )}
 
-      {/* Sidebar - Largura aumentada em tablet */}
+      {/* Sidebar */}
       <div
         className={`
           fixed md:static inset-y-0 left-0 w-full sm:w-80 md:w-72 lg:w-80 bg-[#2f2f2f] text-white shadow-2xl z-50 transition-transform duration-300 ease-in-out
@@ -1312,7 +1305,6 @@ export default function Todo() {
           flex flex-col max-w-sm md:max-w-none
         `}
       >
-        {/* Header */}
         <div className="flex justify-between items-center p-4 sm:p-5 border-b border-gray-600">
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
             <i className="fa-solid fa-dove text-base sm:text-lg md:text-xl"></i> 
@@ -1335,11 +1327,10 @@ export default function Todo() {
           </div>
         </div>
 
-        {/* Ações principais */}
         <div className="p-4 sm:p-5 space-y-2">
           <button
             onClick={criarLista}
-            className="w-full flex items-center gap-3 p-3 sm:p-3.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm sm:text-base touch-manipulation"
+            className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
           >
             <i className="fa-solid fa-plus text-base"></i>
             <span>Nova lista</span>
@@ -1352,9 +1343,9 @@ export default function Todo() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar tarefas..."
-              className="w-full bg-gray-700 text-white placeholder-gray-400 text-sm sm:text-base p-3 sm:p-3.5 pl-10 sm:pl-11 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
+              className="w-full bg-gray-700 text-white placeholder-gray-400 text-sm p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
             />
-            <i className="fa-solid fa-search absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+            <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
           </div>
 
           <button
@@ -1364,7 +1355,7 @@ export default function Todo() {
               setCodigoSync("");
               setCodigoImportar("");
             }}
-            className="w-full flex items-center gap-3 p-3 sm:p-3.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm sm:text-base touch-manipulation"
+            className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
             title="Sincronizar dispositivos"
           >
             <i className="fa-solid fa-rotate text-base"></i>
@@ -1374,7 +1365,7 @@ export default function Todo() {
           {temLista && (
             <button
               onClick={exportarDados}
-              className="w-full flex items-center gap-3 p-3 sm:p-3.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm sm:text-base touch-manipulation"
+              className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
               title="Backup dos dados"
             >
               <i className="fa-solid fa-download text-base"></i>
@@ -1383,7 +1374,6 @@ export default function Todo() {
           )}
         </div>
 
-        {/* Filtros/Categorias */}
         <div className="px-4 sm:px-5 mb-4">
           <button
             onClick={() => setCategoriasColapsadas(!categoriasColapsadas)}
@@ -1434,7 +1424,6 @@ export default function Todo() {
           )}
         </div>
 
-        {/* Listas */}
         {temLista && (
           <div className="flex-1 px-4 sm:px-5 overflow-hidden flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-3">
@@ -1516,7 +1505,7 @@ export default function Todo() {
         )}
       </div>
 
-      {/* Área principal - Padding aumentado em tablet */}
+      {/* Área principal */}
       <div className={`flex-1 ${bgPrimary} flex flex-col w-full md:w-auto`}>
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 pb-24 sm:pb-28">
           <div className="flex justify-center items-start w-full h-full">
@@ -1537,9 +1526,7 @@ export default function Todo() {
           </div>
         ) : (
           <div className="w-full h-full flex flex-col max-w-5xl mx-auto">
-            {/* Header otimizado */}
             <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-              {/* Linha 1: Menu + Título + Ordenação */}
               <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   <button
@@ -1553,7 +1540,6 @@ export default function Todo() {
                   <h1 className={`text-2xl sm:text-3xl md:text-4xl font-bold ${textPrimary} truncate leading-tight`}>{obterTituloAtual()}</h1>
                 </div>
                 
-                {/* Controle de ordenação */}
                 <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
                   <span className={`text-xs ${textSecondary} hidden sm:block`}>Ordenar:</span>
                   <div className="relative">
@@ -1572,7 +1558,6 @@ export default function Todo() {
                 </div>
               </div>
 
-              {/* Linha 2 - Busca */}
               {filtro !== "lista" && (
                 <div className="relative">
                   <input
@@ -1588,7 +1573,6 @@ export default function Todo() {
               )}
             </div>
 
-            {/* Área de visualização */}
             {filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes" ? (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
                 <div className="flex items-start gap-2 sm:gap-3">
@@ -1596,10 +1580,10 @@ export default function Todo() {
                     <i className="fa-solid fa-info-circle"></i>
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1 text-sm sm:text-base">
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1 text-sm sm:text-base">
                       Visualização: {obterTituloAtual()}
                     </h3>
-                    <p className="text-blue-700 dark:text-blue-400 text-xs sm:text-sm">
+                    <p className="text-blue-800 dark:text-blue-200 text-xs sm:text-sm">
                       Selecione uma lista específica na barra lateral para adicionar novas tarefas.
                     </p>
                   </div>
@@ -1610,8 +1594,8 @@ export default function Todo() {
             {mensagem && (
               <div className={`mb-3 sm:mb-4 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium ${
                 mensagem.includes("sucesso") 
-                  ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" 
-                  : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"
+                  ? "bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 border border-green-200 dark:border-green-800" 
+                  : "bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 border border-red-200 dark:border-red-800"
               }`}>
                 <div className="flex items-center gap-2">
                   <i className={`fa-solid ${mensagem.includes("sucesso") ? "fa-circle-check" : "fa-circle-exclamation"}`}></i>
@@ -1620,7 +1604,6 @@ export default function Todo() {
               </div>
             )}
 
-            {/* Lista de tarefas com espaçamento melhorado em tablet */}
             <div className={animando ? "animate-out" : "animate-in"}>
               {tarefasFiltradas?.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 sm:py-20 px-4">
@@ -1650,7 +1633,6 @@ export default function Todo() {
                       } hover:border-gray-400 dark:hover:border-gray-500 touch-manipulation`}
                     >
                       <div className="flex items-start gap-2 sm:gap-3">
-                        {/* Checkbox */}
                         <button
                           onClick={() => toggleConcluida(tarefa)}
                           className={`flex-shrink-0 transition-all duration-200 mt-0.5 touch-manipulation p-1 ${
@@ -1662,7 +1644,6 @@ export default function Todo() {
                           <i className={`fa-${tarefa.concluida ? "solid" : "regular"} fa-circle-check text-lg sm:text-xl`}></i>
                         </button>
                         
-                        {/* Conteúdo da tarefa */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
                             <span
@@ -1733,7 +1714,6 @@ export default function Todo() {
                           )}
                         </div>
 
-                        {/* Botões de ação */}
                         <div className="flex sm:opacity-0 sm:group-hover:opacity-100 gap-0.5 sm:gap-1 transition-opacity duration-200 flex-shrink-0">
                           <button
                             onClick={() => toggleImportante(tarefa)}
@@ -1772,10 +1752,8 @@ export default function Todo() {
           </div>
         </div>
 
-        {/* Input fixo na parte inferior - com sombra */}
         {temLista && filtro === "lista" && (
           <>
-            {/* Gradiente de fade sem blur */}
             <div className={`fixed bottom-0 left-0 right-0 md:left-72 lg:left-80 h-32 sm:h-40 bg-gradient-to-t ${darkMode ? 'from-gray-900 via-gray-900/98' : 'from-[#5e5e5e5e] via-[#5e5e5e5e]/98'} to-transparent pointer-events-none z-10`}></div>
             
             <div className="fixed bottom-0 left-0 right-0 md:left-72 lg:left-80 p-3 sm:p-4 z-20">
@@ -1801,15 +1779,13 @@ export default function Todo() {
                       className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm sm:text-base touch-manipulation"
                     />
                     
-                    {novaTarefa.trim() && (
-                      <button
-                        onClick={limparTudo}
-                        className="text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200 flex-shrink-0 p-1.5 sm:p-2 touch-manipulation"
-                        title="Limpar lista"
-                      >
-                        <i className="fa-solid fa-trash text-sm sm:text-base"></i>
-                      </button>
-                    )}
+                    <button
+                      onClick={limparTudo}
+                      className="text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200 flex-shrink-0 p-1.5 sm:p-2 touch-manipulation"
+                      title="Limpar lista"
+                    >
+                      <i className="fa-solid fa-trash text-sm sm:text-base"></i>
+                    </button>
                     
                     <button
                       onClick={adicionarTarefaRapida}
