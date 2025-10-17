@@ -32,6 +32,7 @@ export default function Todo() {
   const [modalRenomearListaAberto, setModalRenomearListaAberto] = useState(false);
   const [modalExcluirListaAberto, setModalExcluirListaAberto] = useState(false);
   const [modalSyncAberto, setModalSyncAberto] = useState(false);
+  const [modalConfirmarImportacao, setModalConfirmarImportacao] = useState(false);
   const [tarefaEditando, setTarefaEditando] = useState(null);
   const [nomeNovaLista, setNomeNovaLista] = useState("");
   const [listaRenomeando, setListaRenomeando] = useState("");
@@ -39,8 +40,7 @@ export default function Todo() {
   const [listaExcluindo, setListaExcluindo] = useState("");
   const [codigoSync, setCodigoSync] = useState("");
   const [codigoImportar, setCodigoImportar] = useState("");
-  const [codigoVisual, setCodigoVisual] = useState("");
-  const [abaSyncAtiva, setAbaSyncAtiva] = useState("gerar"); // "gerar" ou "importar"
+  const [abaSyncAtiva, setAbaSyncAtiva] = useState("gerar");
   
   // Novos estados para melhorias
   const [busca, setBusca] = useState("");
@@ -52,6 +52,7 @@ export default function Todo() {
   const [menuAberto, setMenuAberto] = useState(null);
   const [listasColapsadas, setListasColapsadas] = useState(false);
   const [categoriasColapsadas, setCategoriasColapsadas] = useState(false);
+  const [tarefasExpandidas, setTarefasExpandidas] = useState(new Set());
   
   // Estados para edição de tarefa
   const [tarefaEditandoTexto, setTarefaEditandoTexto] = useState("");
@@ -72,7 +73,6 @@ export default function Todo() {
         scrollbar-width: none;
       }
       
-      /* Scrollbar customizada suave */
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
       }
@@ -92,7 +92,6 @@ export default function Todo() {
         background: rgba(156, 163, 175, 0.8);
       }
       
-      /* Firefox */
       .custom-scrollbar {
         scrollbar-width: thin;
         scrollbar-color: rgba(156, 163, 175, 0.5) rgba(75, 85, 99, 0.3);
@@ -128,17 +127,24 @@ export default function Todo() {
         animation: slideIn 0.3s ease-out forwards;
       }
 
-      /* Dark mode transitions */
       * {
         transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
       }
       
-      /* Line clamp utility */
       .line-clamp-2 {
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
+      }
+      
+      .touch-manipulation {
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      button {
+        -webkit-user-select: none;
+        user-select: none;
       }
     `;
     document.head.appendChild(style);
@@ -197,6 +203,7 @@ export default function Todo() {
         setModalAberto(false);
         setModalExcluirListaAberto(false);
         setModalSyncAberto(false);
+        setModalConfirmarImportacao(false);
         setMenuAberto(null);
       }
     };
@@ -452,6 +459,19 @@ export default function Todo() {
     setTimeout(() => setMensagem(""), 3000);
   }
 
+  // Toggle expansão de tarefa
+  function toggleExpandirTarefa(tarefaId) {
+    setTarefasExpandidas(prev => {
+      const novoSet = new Set(prev);
+      if (novoSet.has(tarefaId)) {
+        novoSet.delete(tarefaId);
+      } else {
+        novoSet.add(tarefaId);
+      }
+      return novoSet;
+    });
+  }
+
   // Limpar tudo
   function limparTudo() {
     if (!listas[listaAtiva] || listas[listaAtiva].length === 0) {
@@ -632,14 +652,6 @@ export default function Todo() {
       const jsonString = JSON.stringify(dados);
       const codigoBase64 = btoa(unescape(encodeURIComponent(jsonString)));
       
-      // Gerar código visual de 4 caracteres
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sem caracteres ambíguos
-      let visual = '';
-      for (let i = 0; i < 4; i++) {
-        visual += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      
-      setCodigoVisual(visual);
       setCodigoSync(codigoBase64);
       setMensagem("Código gerado com sucesso!");
       setTimeout(() => setMensagem(""), 3000);
@@ -666,21 +678,34 @@ export default function Todo() {
         throw new Error("Código inválido");
       }
 
-      if (window.confirm("Deseja importar as listas? Isso substituirá suas listas atuais.")) {
-        setListas(dados.listas);
-        const primeiraLista = Object.keys(dados.listas)[0];
-        if (primeiraLista) {
-          setListaAtiva(primeiraLista);
-          setFiltro("lista");
-        }
-        setModalSyncAberto(false);
-        setCodigoImportar("");
-        setMensagem("Listas importadas com sucesso!");
-        setTimeout(() => setMensagem(""), 3000);
-      }
+      setModalConfirmarImportacao(true);
     } catch (error) {
       console.error("Erro ao importar código:", error);
       setMensagem("Código inválido! Verifique e tente novamente.");
+      setTimeout(() => setMensagem(""), 3000);
+    }
+  }
+
+  // Confirmar importação
+  function confirmarImportacao() {
+    try {
+      const jsonString = decodeURIComponent(escape(atob(codigoImportar.trim())));
+      const dados = JSON.parse(jsonString);
+      
+      setListas(dados.listas);
+      const primeiraLista = Object.keys(dados.listas)[0];
+      if (primeiraLista) {
+        setListaAtiva(primeiraLista);
+        setFiltro("lista");
+      }
+      setModalConfirmarImportacao(false);
+      setModalSyncAberto(false);
+      setCodigoImportar("");
+      setMensagem("Listas importadas com sucesso!");
+      setTimeout(() => setMensagem(""), 3000);
+    } catch (error) {
+      console.error("Erro ao importar:", error);
+      setMensagem("Erro ao importar dados");
       setTimeout(() => setMensagem(""), 3000);
     }
   }
@@ -696,12 +721,9 @@ export default function Todo() {
     });
   }
 
-  // ========== RENDERIZAÇÃO ==========
-
   const temLista = Object.keys(listas).length > 0;
   const tarefasFiltradas = obterTarefasGlobais();
 
-  // Classes para dark mode
   const bgPrimary = darkMode ? "bg-gray-900" : "bg-[#5e5e5e5e]";
   const bgSecondary = darkMode ? "bg-gray-800" : "bg-white";
   const textPrimary = darkMode ? "text-white" : "text-gray-900";
@@ -710,7 +732,6 @@ export default function Todo() {
 
   return (
     <div className={`flex h-screen relative overflow-hidden touch-manipulation ${darkMode ? 'dark bg-gray-900' : 'bg-[#5e5e5e5e]'}`}>
-      {/* Overlay mobile */}
       {sidebarAberta && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
@@ -718,548 +739,29 @@ export default function Todo() {
         />
       )}
 
-      {/* Modal de renomear lista */}
-      {modalRenomearListaAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
-            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
-              <h2 className="text-2xl font-bold">Renomear Lista</h2>
-              <button
-                onClick={() => {
-                  setModalRenomearListaAberto(false);
-                  setListaRenomeando("");
-                  setNovoNomeLista("");
-                }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Novo nome da lista *</label>
-                <input
-                  type="text"
-                  value={novoNomeLista}
-                  onChange={(e) => setNovoNomeLista(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && salvarRenomeacaoLista()}
-                  placeholder="Digite o novo nome da lista..."
-                  autoFocus
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div className="flex flex-col gap-3 mt-6">
-                <button
-                  onClick={salvarRenomeacaoLista}
-                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium text-base"
-                >
-                  Renomear Lista
-                </button>
-                <button
-                  onClick={() => {
-                    setModalRenomearListaAberto(false);
-                    setListaRenomeando("");
-                    setNovoNomeLista("");
-                  }}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de criar lista */}
-      {modalCriarListaAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
-            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
-              <h2 className="text-2xl font-bold">Nova Lista</h2>
-              <button
-                onClick={() => {
-                  setModalCriarListaAberto(false);
-                  setNomeNovaLista("");
-                }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Nome da nova lista *</label>
-                <input
-                  type="text"
-                  value={nomeNovaLista}
-                  onChange={(e) => setNomeNovaLista(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && salvarNovaLista()}
-                  placeholder="Ex: Trabalho, Estudos, Casa..."
-                  autoFocus
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div className="flex flex-col gap-3 mt-6">
-                <button
-                  onClick={salvarNovaLista}
-                  className="w-full bg-[#3A3A3A] text-white px-4 py-3 rounded-lg hover:bg-[#4e4e4e] transition font-medium text-base"
-                >
-                  Criar Lista
-                </button>
-                <button
-                  onClick={() => {
-                    setModalCriarListaAberto(false);
-                    setNomeNovaLista("");
-                  }}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de adicionar tarefa detalhada */}
-      {modalAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
-            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
-              <h2 className="text-2xl font-bold">Nova Tarefa</h2>
-              <button
-                onClick={() => setModalAberto(false)}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Título da tarefa *</label>
-                <input
-                  type="text"
-                  value={novaTarefa}
-                  onChange={(e) => setNovaTarefa(e.target.value)}
-                  placeholder="Ex: Estudar React"
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Descrição</label>
-                <textarea
-                  value={novaDescricao}
-                  onChange={(e) => setNovaDescricao(e.target.value)}
-                  placeholder="Adicione detalhes sobre a tarefa..."
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none h-24 resize-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Link</label>
-                <input
-                  type="url"
-                  value={novoLink}
-                  onChange={(e) => setNovoLink(e.target.value)}
-                  placeholder="https://exemplo.com"
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prazo</label>
-                  <input
-                    type="date"
-                    value={prazo}
-                    onChange={(e) => setPrazo(e.target.value)}
-                    className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prioridade</label>
-                  <select
-                    value={prioridade}
-                    onChange={(e) => setPrioridade(e.target.value)}
-                    className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                  >
-                    <option value="baixa">Baixa</option>
-                    <option value="normal">Normal</option>
-                    <option value="alta">Alta</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 mt-6">
-                <button
-                  onClick={adicionarTarefa}
-                  className="w-full bg-[#3A3A3A] text-white px-4 py-3 rounded-lg hover:bg-[#4e4e4e] transition font-medium text-base"
-                >
-                  Adicionar Tarefa
-                </button>
-                <button
-                  onClick={() => setModalAberto(false)}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de editar tarefa */}
-      {modalEditarAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
-            <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
-              <h2 className="text-2xl font-bold">Editar Tarefa</h2>
-              <button
-                onClick={() => {
-                  setModalEditarAberto(false);
-                  setTarefaEditando(null);
-                }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Título da tarefa *</label>
-                <input
-                  type="text"
-                  value={tarefaEditandoTexto}
-                  onChange={(e) => setTarefaEditandoTexto(e.target.value)}
-                  placeholder="Ex: Estudar React"
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Descrição</label>
-                <textarea
-                  value={tarefaEditandoDescricao}
-                  onChange={(e) => setTarefaEditandoDescricao(e.target.value)}
-                  placeholder="Adicione detalhes sobre a tarefa..."
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none h-24 resize-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Link</label>
-                <input
-                  type="url"
-                  value={tarefaEditandoLink}
-                  onChange={(e) => setTarefaEditandoLink(e.target.value)}
-                  placeholder="https://exemplo.com"
-                  className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prazo</label>
-                  <input
-                    type="date"
-                    value={tarefaEditandoPrazo}
-                    onChange={(e) => setTarefaEditandoPrazo(e.target.value)}
-                    className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prioridade</label>
-                  <select
-                    value={tarefaEditandoPrioridade}
-                    onChange={(e) => setTarefaEditandoPrioridade(e.target.value)}
-                    className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
-                  >
-                    <option value="baixa">Baixa</option>
-                    <option value="normal">Normal</option>
-                    <option value="alta">Alta</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 mt-6">
-                <button
-                  onClick={salvarEdicaoTarefa}
-                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium text-base"
-                >
-                  Salvar Alterações
-                </button>
-                <button
-                  onClick={() => {
-                    setModalEditarAberto(false);
-                    setTarefaEditando(null);
-                  }}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de sincronização */}
-      {modalSyncAberto && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl my-8 shadow-2xl border ${border} animate-in`}>
-            <div className={`flex items-center justify-between p-6 border-b ${border}`}>
-              <h2 className="text-2xl font-bold">Sincronizar Dispositivos</h2>
-              <button
-                onClick={() => {
-                  setModalSyncAberto(false);
-                  setCodigoSync("");
-                  setCodigoImportar("");
-                  setCodigoVisual("");
-                }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            {/* Abas */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => setAbaSyncAtiva("gerar")}
-                className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
-                  abaSyncAtiva === "gerar"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
-                    : `${textSecondary} hover:text-gray-900 dark:hover:text-white`
-                }`}
-              >
-                <i className="fa-solid fa-qrcode mr-2"></i>
-                Gerar Código
-              </button>
-              <button
-                onClick={() => setAbaSyncAtiva("importar")}
-                className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
-                  abaSyncAtiva === "importar"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
-                    : `${textSecondary} hover:text-gray-900 dark:hover:text-white`
-                }`}
-              >
-                <i className="fa-solid fa-file-import mr-2"></i>
-                Importar Código
-              </button>
-            </div>
-
-            <div className="p-6">
-              {/* Aba Gerar Código */}
-              {abaSyncAtiva === "gerar" && (
-                <div className="space-y-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <i className="fa-solid fa-info-circle text-blue-600 dark:text-blue-400 text-lg mt-0.5"></i>
-                      <div className="text-sm text-blue-800 dark:text-blue-300">
-                        <p className="font-medium mb-1">Como funciona:</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs">
-                          <li>Clique em "Gerar Código" para criar um código com suas listas</li>
-                          <li>Copie o código completo clicando no botão</li>
-                          <li>No outro dispositivo, cole o código na aba "Importar Código"</li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-
-                  {!codigoSync ? (
-                    <button
-                      onClick={gerarCodigoSync}
-                      className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-medium text-base flex items-center justify-center gap-2"
-                    >
-                      <i className="fa-solid fa-wand-magic-sparkles"></i>
-                      Gerar Código de Sincronização
-                    </button>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* Código Visual Grande */}
-                      <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-8 text-center">
-                        <p className="text-white/80 text-sm mb-2">Código de Identificação</p>
-                        <div className="text-6xl font-bold text-white tracking-widest font-mono">
-                          {codigoVisual}
-                        </div>
-                        <p className="text-white/60 text-xs mt-3">
-                          <i className="fa-solid fa-info-circle mr-1"></i>
-                          Este é apenas um identificador visual
-                        </p>
-                      </div>
-
-                      {/* Detalhes */}
-                      <div className={`${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-lg p-4`}>
-                        <div className="flex items-center justify-between text-sm mb-2">
-                          <span className={textSecondary}>Total de listas:</span>
-                          <span className="font-semibold">{Object.keys(listas).length}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className={textSecondary}>Total de tarefas:</span>
-                          <span className="font-semibold">
-                            {Object.values(listas).reduce((acc, lista) => acc + lista.length, 0)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Botões */}
-                      <div className="flex gap-3">
-                        <button
-                          onClick={copiarCodigo}
-                          className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition font-medium text-base flex items-center justify-center gap-2"
-                        >
-                          <i className="fa-solid fa-copy"></i>
-                          Copiar Código Completo
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCodigoSync("");
-                            setCodigoVisual("");
-                          }}
-                          className={`px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
-                        >
-                          <i className="fa-solid fa-rotate-right"></i>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Aba Importar Código */}
-              {abaSyncAtiva === "importar" && (
-                <div className="space-y-4">
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <i className="fa-solid fa-triangle-exclamation text-yellow-600 dark:text-yellow-400 text-lg mt-0.5"></i>
-                      <div className="text-sm text-yellow-800 dark:text-yellow-300">
-                        <p className="font-medium mb-1">Atenção:</p>
-                        <p className="text-xs">Importar um código substituirá todas as suas listas atuais. Exporte um backup antes se necessário.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Cole o código completo aqui:</label>
-                    <textarea
-                      value={codigoImportar}
-                      onChange={(e) => setCodigoImportar(e.target.value)}
-                      placeholder="Cole o código de sincronização completo aqui..."
-                      className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-xs font-mono ${bgSecondary} ${textPrimary} h-32 resize-none`}
-                    />
-                  </div>
-
-                  <button
-                    onClick={importarCodigoSync}
-                    disabled={!codigoImportar.trim()}
-                    className={`w-full px-6 py-3 rounded-lg transition font-medium text-base flex items-center justify-center gap-2 ${
-                      codigoImportar.trim()
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
-                    }`}
-                  >
-                    <i className="fa-solid fa-file-import"></i>
-                    Importar Listas
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de excluir lista */}
-      {modalExcluirListaAberto && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} animate-in`}>
-            <div className={`flex items-start gap-4 p-6 border-b ${border}`}>
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <i className="fa-solid fa-triangle-exclamation text-red-600 dark:text-red-400 text-xl"></i>
-              </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold mb-1">Excluir lista</h2>
-                <p className={`text-sm ${textSecondary}`}>
-                  Tem certeza que deseja excluir a lista <span className="font-semibold text-red-600 dark:text-red-400">"{listaExcluindo}"</span>?
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setModalExcluirListaAberto(false);
-                  setListaExcluindo("");
-                }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0`}
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <div className="p-6">
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <i className="fa-solid fa-info-circle text-red-600 dark:text-red-400 text-sm mt-0.5"></i>
-                  <p className="text-sm text-red-800 dark:text-red-300">
-                    Esta ação não pode ser desfeita. Todas as tarefas desta lista serão permanentemente excluídas.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col-reverse sm:flex-row gap-3">
-                <button
-                  onClick={() => {
-                    setModalExcluirListaAberto(false);
-                    setListaExcluindo("");
-                  }}
-                  className={`flex-1 px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 font-medium text-base`}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={confirmarExclusaoLista}
-                  className="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition-all duration-200 font-medium text-base shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
-                >
-                  Sim, excluir lista
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sidebar - Largura aumentada em tablet */}
+      {/* Sidebar */}
       <div
         className={`
-          fixed md:static top-0 left-0 h-full w-72 md:w-80 lg:w-72 bg-[#2f2f2f] text-white shadow-2xl z-50 transition-transform duration-300 ease-in-out
-          ${sidebarAberta ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0 flex flex-col
+          fixed md:static inset-y-0 left-0 w-full sm:w-80 md:w-72 lg:w-80 bg-[#2f2f2f] text-white shadow-2xl z-50 transition-transform duration-300 ease-in-out
+          ${sidebarAberta ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          flex flex-col max-w-sm md:max-w-none
         `}
       >
-        {/* Header */}
-        <div className="flex justify-between items-center p-4 md:p-5 border-b border-gray-600">
-          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-            <i className="fa-solid fa-dove text-lg md:text-xl"></i> 
+        <div className="flex justify-between items-center p-4 sm:p-5 border-b border-gray-600">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
+            <i className="fa-solid fa-dove text-base sm:text-lg md:text-xl"></i> 
             <span>ListFy</span>
           </h2>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="text-gray-400 hover:text-white transition p-2 rounded text-base"
+              className="text-gray-400 hover:text-white transition p-2 sm:p-2.5 rounded text-base touch-manipulation"
               title="Toggle Dark Mode"
             >
               <i className={`fa-solid ${darkMode ? 'fa-sun' : 'fa-moon'}`}></i>
             </button>
             <button
-              className="md:hidden text-gray-400 hover:text-white transition p-2 rounded text-base"
+              className="md:hidden text-gray-400 hover:text-white transition p-2 sm:p-2.5 rounded text-base touch-manipulation"
               onClick={toggleSidebar}
             >
               <i className="fa-solid fa-xmark"></i>
@@ -1267,14 +769,13 @@ export default function Todo() {
           </div>
         </div>
 
-        {/* Ações principais */}
-        <div className="p-4 md:p-5 space-y-2">
+        <div className="p-4 sm:p-5 space-y-2">
           <button
             onClick={criarLista}
-            className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200"
+            className="w-full flex items-center gap-3 p-3 sm:p-3.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm sm:text-base touch-manipulation"
           >
             <i className="fa-solid fa-plus text-base"></i>
-            <span className="text-base">Nova lista</span>
+            <span>Nova lista</span>
           </button>
           
           <div className="relative">
@@ -1284,45 +785,41 @@ export default function Todo() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar tarefas..."
-              className="w-full bg-gray-700 text-white placeholder-gray-400 text-sm p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-gray-700 text-white placeholder-gray-400 text-sm sm:text-base p-3 sm:p-3.5 pl-10 sm:pl-11 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
             />
-            <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+            <i className="fa-solid fa-search absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
           </div>
 
+          <button
+            onClick={() => {
+              setModalSyncAberto(true);
+              setAbaSyncAtiva("gerar");
+              setCodigoSync("");
+              setCodigoImportar("");
+            }}
+            className="w-full flex items-center gap-3 p-3 sm:p-3.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm sm:text-base touch-manipulation"
+            title="Sincronizar dispositivos"
+          >
+            <i className="fa-solid fa-rotate text-base"></i>
+            <span>Sincronizar</span>
+          </button>
+
           {temLista && (
-            <>
-              <button
-                onClick={() => {
-                  setModalSyncAberto(true);
-                  setAbaSyncAtiva("gerar");
-                  setCodigoSync("");
-                  setCodigoImportar("");
-                  setCodigoVisual("");
-                }}
-                className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200"
-                title="Sincronizar dispositivos"
-              >
-                <i className="fa-solid fa-rotate text-base"></i>
-                <span className="text-base">Sincronizar</span>
-              </button>
-              
-              <button
-                onClick={exportarDados}
-                className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200"
-                title="Backup dos dados"
-              >
-                <i className="fa-solid fa-download text-base"></i>
-                <span className="text-base">Exportar dados</span>
-              </button>
-            </>
+            <button
+              onClick={exportarDados}
+              className="w-full flex items-center gap-3 p-3 sm:p-3.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm sm:text-base touch-manipulation"
+              title="Backup dos dados"
+            >
+              <i className="fa-solid fa-download text-base"></i>
+              <span>Exportar dados</span>
+            </button>
           )}
         </div>
 
-        {/* Filtros/Categorias */}
-        <div className="px-4 md:px-5 mb-4">
+        <div className="px-4 sm:px-5 mb-4">
           <button
             onClick={() => setCategoriasColapsadas(!categoriasColapsadas)}
-            className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors mb-3"
+            className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors mb-3 touch-manipulation p-1"
           >
             <i className={`fa-solid fa-chevron-${categoriasColapsadas ? 'right' : 'down'} text-xs transition-transform`}></i>
             Categorias
@@ -1332,7 +829,7 @@ export default function Todo() {
             <div className="space-y-2">
               <button 
                 onClick={() => mudarFiltro("incompletas")} 
-                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 ${
+                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
                   filtro === "incompletas" 
                     ? "bg-blue-600 text-white shadow-lg" 
                     : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -1344,7 +841,7 @@ export default function Todo() {
               
               <button 
                 onClick={() => mudarFiltro("concluidas")} 
-                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 ${
+                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
                   filtro === "concluidas" 
                     ? "bg-green-600 text-white shadow-lg" 
                     : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -1356,7 +853,7 @@ export default function Todo() {
               
               <button 
                 onClick={() => mudarFiltro("importantes")} 
-                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 ${
+                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
                   filtro === "importantes" 
                     ? "bg-yellow-600 text-white shadow-lg" 
                     : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -1369,13 +866,12 @@ export default function Todo() {
           )}
         </div>
 
-        {/* Listas */}
         {temLista && (
-          <div className="flex-1 px-4 md:px-5 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 px-4 sm:px-5 overflow-hidden flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={() => setListasColapsadas(!listasColapsadas)}
-                className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors touch-manipulation p-1"
               >
                 <i className={`fa-solid fa-chevron-${listasColapsadas ? 'right' : 'down'} text-xs transition-transform`}></i>
                 Minhas Listas
@@ -1393,7 +889,7 @@ export default function Todo() {
                         setBusca("");
                         setMenuAberto(null);
                       }}
-                      className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg transition-all duration-200 ${
+                      className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg transition-all duration-200 touch-manipulation ${
                         listaAtiva === nome && filtro === "lista"
                           ? "bg-gray-700 text-white border-l-4 border-blue-500"
                           : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -1409,7 +905,7 @@ export default function Todo() {
                             e.stopPropagation();
                             setMenuAberto(menuAberto === nome ? null : nome);
                           }}
-                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white transition-all duration-200 p-1.5 rounded hover:bg-gray-600"
+                          className="sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 hover:text-white transition-all duration-200 p-1.5 rounded hover:bg-gray-600 touch-manipulation"
                           title="Opções da lista"
                         >
                           <i className="fa-solid fa-ellipsis text-base"></i>
@@ -1425,7 +921,7 @@ export default function Todo() {
                               e.stopPropagation();
                               renomearLista(nome);
                             }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-3"
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-3 touch-manipulation"
                           >
                             <i className="fa-solid fa-pencil text-sm"></i>
                             Renomear
@@ -1435,7 +931,7 @@ export default function Todo() {
                               e.stopPropagation();
                               abrirModalExcluirLista(nome);
                             }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-gray-700 flex items-center gap-3"
+                            className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-gray-700 flex items-center gap-3 touch-manipulation"
                           >
                             <i className="fa-solid fa-trash text-sm"></i>
                             Excluir
@@ -1451,280 +947,288 @@ export default function Todo() {
         )}
       </div>
 
-      {/* Área principal - Padding aumentado em tablet */}
+      {/* Área principal */}
       <div className={`flex-1 ${bgPrimary} flex flex-col w-full md:w-auto`}>
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-28">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 pb-24 sm:pb-28">
           <div className="flex justify-center items-start w-full h-full">
-        {!temLista ? (
-          <div className="flex flex-col justify-center items-center text-center w-full h-full px-4">
-            <h1 className={`text-2xl md:text-3xl font-bold mb-4 ${textPrimary}`}>
-              Nenhuma lista criada
-            </h1>
-            <p className={`mb-6 text-base ${textSecondary}`}>
-              Crie sua primeira lista para começar a adicionar tarefas!
-            </p>
-            <button
-              onClick={criarLista}
-              className="bg-[#3A3A3A] text-white px-6 py-3 rounded hover:bg-[#4e4e4e] transition duration-300 text-base"
-            >
-              Criar lista
-            </button>
-          </div>
-        ) : (
-          <div className="w-full h-full flex flex-col max-w-5xl mx-auto">
-            {/* Header otimizado */}
-            <div className="flex flex-col gap-4 mb-6">
-              {/* Linha 1: Menu + Título + Ordenação */}
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <button
-                    className="md:hidden bg-gray-700 hover:bg-gray-600 text-white p-2.5 rounded-lg transition-all duration-200 flex-shrink-0"
-                    onClick={toggleSidebar}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                  <h1 className={`text-3xl md:text-4xl font-bold ${textPrimary} truncate`}>{obterTituloAtual()}</h1>
-                </div>
-                
-                {/* Controle de ordenação */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`text-xs ${textSecondary} hidden sm:block`}>Ordenar:</span>
-                  <div className="relative">
-                    <select
-                      value={ordenacao}
-                      onChange={(e) => setOrdenacao(e.target.value)}
-                      className={`appearance-none pl-3 pr-8 py-2 border ${border} rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm ${bgSecondary} ${textPrimary} cursor-pointer min-w-[140px] transition-all`}
-                    >
-                      <option value="recente">Mais recente</option>
-                      <option value="alfabetica">A-Z</option>
-                      <option value="prioridade">Prioridade</option>
-                      <option value="prazo">Prazo</option>
-                    </select>
-                    <i className={`fa-solid fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-xs ${textSecondary} pointer-events-none`}></i>
-                  </div>
-                </div>
+            {!temLista ? (
+              <div className="flex flex-col justify-center items-center text-center w-full h-full px-4">
+                <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold mb-3 sm:mb-4 ${textPrimary}`}>
+                  Nenhuma lista criada
+                </h1>
+                <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${textSecondary}`}>
+                  Crie sua primeira lista para começar a adicionar tarefas!
+                </p>
+                <button
+                  onClick={criarLista}
+                  className="bg-[#3A3A3A] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded hover:bg-[#4e4e4e] transition duration-300 text-sm sm:text-base touch-manipulation"
+                >
+                  Criar lista
+                </button>
               </div>
-
-              {/* Linha 2 - Busca */}
-              {filtro !== "lista" && (
-                <div className="relative">
-                  <input
-                    id="busca-input"
-                    type="text"
-                    value={busca}
-                    onChange={(e) => setBusca(e.target.value)}
-                    placeholder="Buscar tarefas..."
-                    className={`w-full p-3 pl-10 border ${border} rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-base ${bgSecondary} ${textPrimary} transition-all`}
-                  />
-                  <i className={`fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-sm ${textSecondary}`}></i>
-                </div>
-              )}
-            </div>
-
-            {/* Área de visualização */}
-            {filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes" ? (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <div className="text-blue-600 dark:text-blue-400 text-2xl flex-shrink-0 mt-0.5">
-                    <i className="fa-solid fa-info-circle"></i>
+            ) : (
+              <div className="w-full h-full flex flex-col max-w-5xl mx-auto">
+                <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
+                  <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <button
+                        className="md:hidden bg-gray-700 hover:bg-gray-600 text-white p-2 sm:p-2.5 rounded-lg transition-all duration-200 flex-shrink-0 touch-manipulation"
+                        onClick={toggleSidebar}
+                      >
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                      </button>
+                      <h1 className={`text-2xl sm:text-3xl md:text-4xl font-bold ${textPrimary} truncate leading-tight`}>{obterTituloAtual()}</h1>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
+                      <span className={`text-xs ${textSecondary} hidden sm:block`}>Ordenar:</span>
+                      <div className="relative">
+                        <select
+                          value={ordenacao}
+                          onChange={(e) => setOrdenacao(e.target.value)}
+                          className={`appearance-none pl-3 pr-8 py-2 sm:py-2.5 border ${border} rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm ${bgSecondary} ${textPrimary} cursor-pointer min-w-[120px] sm:min-w-[140px] transition-all touch-manipulation`}
+                        >
+                          <option value="recente">Mais recente</option>
+                          <option value="alfabetica">A-Z</option>
+                          <option value="prioridade">Prioridade</option>
+                          <option value="prazo">Prazo</option>
+                        </select>
+                        <i className={`fa-solid fa-chevron-down absolute right-2.5 sm:right-3 top-1/2 transform -translate-y-1/2 text-xs ${textSecondary} pointer-events-none`}></i>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1 text-base">
-                      Visualização: {obterTituloAtual()}
-                    </h3>
-                    <p className="text-blue-700 dark:text-blue-400 text-sm">
-                      Selecione uma lista específica na barra lateral para adicionar novas tarefas.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
 
-            {mensagem && (
-              <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
-                mensagem.includes("sucesso") 
-                  ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" 
-                  : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"
-              }`}>
-                <div className="flex items-center gap-2">
-                  <i className={`fa-solid ${mensagem.includes("sucesso") ? "fa-circle-check" : "fa-circle-exclamation"}`}></i>
-                  <span>{mensagem}</span>
+                  {filtro !== "lista" && (
+                    <div className="relative">
+                      <input
+                        id="busca-input"
+                        type="text"
+                        value={busca}
+                        onChange={(e) => setBusca(e.target.value)}
+                        placeholder="Buscar tarefas..."
+                        className={`w-full p-3 sm:p-3.5 pl-10 sm:pl-11 border ${border} rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base ${bgSecondary} ${textPrimary} transition-all touch-manipulation`}
+                      />
+                      <i className={`fa-solid fa-search absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-sm ${textSecondary}`}></i>
+                    </div>
+                  )}
+                </div>
+
+                {filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes" ? (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="text-blue-600 dark:text-blue-400 text-xl sm:text-2xl flex-shrink-0 mt-0.5">
+                        <i className="fa-solid fa-info-circle"></i>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1 text-sm sm:text-base">
+                          Visualização: {obterTituloAtual()}
+                        </h3>
+                        <p className="text-blue-700 dark:text-blue-400 text-xs sm:text-sm">
+                          Selecione uma lista específica na barra lateral para adicionar novas tarefas.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {mensagem && (
+                  <div className={`mb-3 sm:mb-4 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium ${
+                    mensagem.includes("sucesso") 
+                      ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" 
+                      : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <i className={`fa-solid ${mensagem.includes("sucesso") ? "fa-circle-check" : "fa-circle-exclamation"}`}></i>
+                      <span className="break-words">{mensagem}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className={animando ? "animate-out" : "animate-in"}>
+                  {tarefasFiltradas?.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 sm:py-20 px-4">
+                      <div className={`text-5xl sm:text-6xl mb-3 sm:mb-4 ${textSecondary} opacity-20`}>
+                        <i className="fa-solid fa-clipboard-list"></i>
+                      </div>
+                      <p className={`${textPrimary} text-base sm:text-lg font-medium mb-1`}>
+                        {busca.trim() ? "Nenhum resultado encontrado" : "Nenhuma tarefa ainda"}
+                      </p>
+                      <p className={`text-xs sm:text-sm ${textSecondary} text-center`}>
+                        {busca.trim() ? "Tente buscar por outros termos" : "Adicione sua primeira tarefa para começar"}
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-2 sm:space-y-2.5 pb-32">
+                      {tarefasFiltradas.map((tarefa, index) => {
+                        const estaExpandida = tarefasExpandidas.has(tarefa.id);
+                        const temDetalhes = tarefa.descricao || tarefa.link || tarefa.prazo;
+                        
+                        return (
+                          <li
+                            key={tarefa.id || index}
+                            className={`group ${bgSecondary} rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-3 sm:p-4 border ${
+                              tarefa.concluida ? 'border-gray-300 dark:border-gray-700 opacity-60' : border
+                            } ${
+                              tarefa.prioridade === "alta"
+                                ? "border-l-4 border-l-red-500"
+                                : tarefa.prioridade === "baixa"
+                                ? "border-l-4 border-l-green-500"
+                                : "border-l-4 border-l-blue-500"
+                            } hover:border-gray-400 dark:hover:border-gray-500 touch-manipulation`}
+                          >
+                            <div className="flex items-start gap-2 sm:gap-3">
+                              <button
+                                onClick={() => toggleConcluida(tarefa)}
+                                className={`flex-shrink-0 transition-all duration-200 mt-0.5 touch-manipulation p-1 ${
+                                  tarefa.concluida 
+                                    ? "text-green-600 scale-110" 
+                                    : `${textSecondary} hover:text-green-600 hover:scale-110`
+                                }`}
+                              >
+                                <i className={`fa-${tarefa.concluida ? "solid" : "regular"} fa-circle-check text-lg sm:text-xl`}></i>
+                              </button>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
+                                  {temDetalhes && (
+                                    <button
+                                      onClick={() => toggleExpandirTarefa(tarefa.id)}
+                                      className={`flex-shrink-0 ${textSecondary} hover:${textPrimary} transition-all duration-200 touch-manipulation p-1`}
+                                      title={estaExpandida ? "Colapsar" : "Expandir"}
+                                    >
+                                      <i className={`fa-solid fa-chevron-${estaExpandida ? 'down' : 'right'} text-xs`}></i>
+                                    </button>
+                                  )}
+                                  
+                                  <span
+                                    className={`text-sm sm:text-base font-medium break-words ${
+                                      tarefa.concluida ? `line-through ${textSecondary}` : textPrimary
+                                    }`}
+                                  >
+                                    {tarefa.texto}
+                                  </span>
+                                  
+                                  {(filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes") && (
+                                    <span className={`text-xs ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'} px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0`}>
+                                      {tarefa.nomeLista}
+                                    </span>
+                                  )}
+                                  
+                                  {tarefa.importante && (
+                                    <span className="text-yellow-500 text-xs sm:text-sm flex-shrink-0">
+                                      <i className="fa-solid fa-star"></i>
+                                    </span>
+                                  )}
+                                  
+                                  {tarefa.prioridade && tarefa.prioridade !== "normal" && (
+                                    <span
+                                      className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${
+                                        tarefa.prioridade === "alta"
+                                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                          : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                      }`}
+                                    >
+                                      {tarefa.prioridade === "alta" ? "Alta" : "Baixa"}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {estaExpandida && (
+                                  <>
+                                    {tarefa.descricao && (
+                                      <p className={`text-xs sm:text-sm ${textSecondary} mb-1.5 sm:mb-2 mt-2`}>{tarefa.descricao}</p>
+                                    )}
+
+                                    {(tarefa.link || tarefa.prazo) && (
+                                      <div className="flex flex-wrap gap-2 sm:gap-3 text-xs mt-2">
+                                        {tarefa.link && (
+                                          <a
+                                            href={tarefa.link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 touch-manipulation"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <i className="fa-solid fa-link"></i>
+                                            <span>Link</span>
+                                          </a>
+                                        )}
+                                        {tarefa.prazo && (
+                                          <span
+                                            className={`flex items-center gap-1 ${
+                                              verificarPrazo(tarefa.prazo)
+                                                ? "text-red-600 dark:text-red-400 font-semibold"
+                                                : textSecondary
+                                            }`}
+                                          >
+                                            <i className="fa-solid fa-calendar"></i>
+                                            <span>{new Date(tarefa.prazo).toLocaleDateString('pt-BR')}</span>
+                                            {verificarPrazo(tarefa.prazo) && <span className="text-xs">(Urgente!)</span>}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="flex sm:opacity-0 sm:group-hover:opacity-100 gap-0.5 sm:gap-1 transition-opacity duration-200 flex-shrink-0">
+                                <button
+                                  onClick={() => toggleImportante(tarefa)}
+                                  className={`p-1.5 sm:p-2 rounded-lg transition-all duration-200 touch-manipulation ${
+                                    tarefa.importante 
+                                      ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" 
+                                      : `${textSecondary} hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-yellow-500`
+                                  }`}
+                                  title="Importante"
+                                >
+                                  <i className="fa-solid fa-star text-xs sm:text-sm"></i>
+                                </button>
+                                <button
+                                  onClick={() => editarTarefa(tarefa)}
+                                  className={`p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 ${textSecondary} hover:text-blue-600 touch-manipulation`}
+                                  title="Editar"
+                                >
+                                  <i className="fa-solid fa-pencil text-xs sm:text-sm"></i>
+                                </button>
+                                <button
+                                  onClick={() => removerTarefa(tarefa)}
+                                  className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-all duration-200 hover:scale-110 touch-manipulation"
+                                  title="Remover"
+                                >
+                                  <i className="fa-solid fa-trash text-xs sm:text-sm"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
               </div>
             )}
-
-            {/* Lista de tarefas com espaçamento melhorado em tablet */}
-            <div className={animando ? "animate-out" : "animate-in"}>
-              {tarefasFiltradas?.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 px-4">
-                  <div className={`text-6xl mb-4 ${textSecondary} opacity-20`}>
-                    <i className="fa-solid fa-clipboard-list"></i>
-                  </div>
-                  <p className={`${textPrimary} text-lg font-medium mb-1`}>
-                    {busca.trim() ? "Nenhum resultado encontrado" : "Nenhuma tarefa ainda"}
-                  </p>
-                  <p className={`text-sm ${textSecondary}`}>
-                    {busca.trim() ? "Tente buscar por outros termos" : "Adicione sua primeira tarefa para começar"}
-                  </p>
-                </div>
-              ) : (
-                <ul className="space-y-2.5 pb-32">
-                  {tarefasFiltradas.map((tarefa, index) => (
-                    <li
-                      key={tarefa.id || index}
-                      className={`group ${bgSecondary} rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-4 border ${
-                        tarefa.concluida ? 'border-gray-300 dark:border-gray-700 opacity-60' : border
-                      } ${
-                        tarefa.prioridade === "alta"
-                          ? "border-l-4 border-l-red-500"
-                          : tarefa.prioridade === "baixa"
-                          ? "border-l-4 border-l-green-500"
-                          : "border-l-4 border-l-blue-500"
-                      } hover:border-gray-400 dark:hover:border-gray-500`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Checkbox */}
-                        <button
-                          onClick={() => toggleConcluida(tarefa)}
-                          className={`flex-shrink-0 transition-all duration-200 ${
-                            tarefa.concluida 
-                              ? "text-green-600 scale-110" 
-                              : `${textSecondary} hover:text-green-600 hover:scale-110`
-                          }`}
-                        >
-                          <i className={`fa-${tarefa.concluida ? "solid" : "regular"} fa-circle-check text-xl`}></i>
-                        </button>
-                        
-                        {/* Conteúdo da tarefa */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span
-                              className={`text-base font-medium break-words ${
-                                tarefa.concluida ? `line-through ${textSecondary}` : textPrimary
-                              }`}
-                            >
-                              {tarefa.texto}
-                            </span>
-                            
-                            {(filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes") && (
-                              <span className={`text-xs ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'} px-2 py-0.5 rounded-full flex-shrink-0`}>
-                                {tarefa.nomeLista}
-                              </span>
-                            )}
-                            
-                            {tarefa.importante && (
-                              <span className="text-yellow-500 text-sm flex-shrink-0">
-                                <i className="fa-solid fa-star"></i>
-                              </span>
-                            )}
-                            
-                            {tarefa.prioridade && tarefa.prioridade !== "normal" && (
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${
-                                  tarefa.prioridade === "alta"
-                                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                                    : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                                }`}
-                              >
-                                {tarefa.prioridade === "alta" ? "Alta" : "Baixa"}
-                              </span>
-                            )}
-                          </div>
-                          
-                          {tarefa.descricao && (
-                            <p className={`text-sm ${textSecondary} mb-2 line-clamp-2`}>{tarefa.descricao}</p>
-                          )}
-
-                          {(tarefa.link || tarefa.prazo) && (
-                            <div className="flex flex-wrap gap-3 text-xs">
-                              {tarefa.link && (
-                                <a
-                                  href={tarefa.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <i className="fa-solid fa-link"></i>
-                                  <span>Link</span>
-                                </a>
-                              )}
-                              {tarefa.prazo && (
-                                <span
-                                  className={`flex items-center gap-1.5 ${
-                                    verificarPrazo(tarefa.prazo)
-                                      ? "text-red-600 dark:text-red-400 font-semibold"
-                                      : textSecondary
-                                  }`}
-                                >
-                                  <i className="fa-solid fa-calendar"></i>
-                                  <span>{new Date(tarefa.prazo).toLocaleDateString('pt-BR')}</span>
-                                  {verificarPrazo(tarefa.prazo) && <span className="text-xs">(Urgente!)</span>}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Botões de ação */}
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
-                          <button
-                            onClick={() => toggleImportante(tarefa)}
-                            className={`p-2 rounded-lg transition-all duration-200 ${
-                              tarefa.importante 
-                                ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" 
-                                : `${textSecondary} hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-yellow-500`
-                            }`}
-                            title="Importante"
-                          >
-                            <i className="fa-solid fa-star text-sm"></i>
-                          </button>
-                          <button
-                            onClick={() => editarTarefa(tarefa)}
-                            className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 ${textSecondary} hover:text-blue-600`}
-                            title="Editar"
-                          >
-                            <i className="fa-solid fa-pencil text-sm"></i>
-                          </button>
-                          <button
-                            onClick={() => removerTarefa(tarefa)}
-                            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-all duration-200 hover:scale-110"
-                            title="Remover"
-                          >
-                            <i className="fa-solid fa-trash text-sm"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
           </div>
         </div>
 
-        {/* Input fixo na parte inferior - com sombra */}
         {temLista && filtro === "lista" && (
           <>
-            {/* Gradiente de fade sem blur */}
-            <div className={`fixed bottom-0 left-0 right-0 md:left-72 lg:left-72 h-40 bg-gradient-to-t ${darkMode ? 'from-gray-900 via-gray-900/98' : 'from-[#5e5e5e5e] via-[#5e5e5e5e]/98'} to-transparent pointer-events-none z-10`}></div>
+            <div className={`fixed bottom-0 left-0 right-0 md:left-72 lg:left-80 h-32 sm:h-40 bg-gradient-to-t ${darkMode ? 'from-gray-900 via-gray-900/98' : 'from-[#5e5e5e5e] via-[#5e5e5e5e]/98'} to-transparent pointer-events-none z-10`}></div>
             
-            <div className="fixed bottom-0 left-0 right-0 md:left-72 lg:left-72 p-4 z-20">
+            <div className="fixed bottom-0 left-0 right-0 md:left-72 lg:left-80 p-3 sm:p-4 z-20">
               <div className="max-w-3xl mx-auto">
                 <div className={`bg-[#2f2f2f] rounded-2xl border transition-all duration-200 ${
                   novaTarefa.trim() ? 'border-blue-500/50' : 'border-gray-700/50'
                 }`}>
-                  <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3">
                     <button
                       onClick={() => setModalAberto(true)}
-                      className="text-gray-500 hover:text-white hover:bg-gray-700/50 rounded-lg transition-all duration-200 flex-shrink-0 p-2"
+                      className="text-gray-500 hover:text-white hover:bg-gray-700/50 rounded-lg transition-all duration-200 flex-shrink-0 p-1.5 sm:p-2 touch-manipulation"
                       title="Adicionar com detalhes"
                     >
-                      <i className="fa-solid fa-plus text-base"></i>
+                      <i className="fa-solid fa-plus text-sm sm:text-base"></i>
                     </button>
                     
                     <input
@@ -1733,30 +1237,30 @@ export default function Todo() {
                       onChange={(e) => setNovaTarefa(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && adicionarTarefaRapida()}
                       placeholder="Adicionar tarefa..."
-                      className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-base"
+                      className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm sm:text-base touch-manipulation"
                     />
                     
                     {novaTarefa.trim() && (
                       <button
                         onClick={limparTudo}
-                        className="text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200 flex-shrink-0 p-2"
+                        className="text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200 flex-shrink-0 p-1.5 sm:p-2 touch-manipulation"
                         title="Limpar lista"
                       >
-                        <i className="fa-solid fa-trash text-base"></i>
+                        <i className="fa-solid fa-trash text-sm sm:text-base"></i>
                       </button>
                     )}
                     
                     <button
                       onClick={adicionarTarefaRapida}
                       disabled={!novaTarefa.trim()}
-                      className={`p-2.5 rounded-xl transition-all duration-200 flex-shrink-0 ${
+                      className={`p-2 sm:p-2.5 rounded-xl transition-all duration-200 flex-shrink-0 touch-manipulation ${
                         novaTarefa.trim() 
                           ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95' 
                           : 'bg-gray-700/50 text-gray-600 cursor-not-allowed'
                       }`}
                       title="Enviar (Enter)"
                     >
-                      <i className="fa-solid fa-arrow-up text-base"></i>
+                      <i className="fa-solid fa-arrow-up text-sm sm:text-base"></i>
                     </button>
                   </div>
                 </div>
