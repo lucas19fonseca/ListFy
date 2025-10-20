@@ -1297,7 +1297,7 @@ export default function Todo() {
         </div>
       )}
 
-      {/* Sidebar */}
+     {/* Sidebar */}
       <div
         className={`
           fixed md:static inset-y-0 left-0 w-full sm:w-80 md:w-72 lg:w-80 bg-[#2f2f2f] text-white shadow-2xl z-50 transition-transform duration-300 ease-in-out
@@ -1305,7 +1305,8 @@ export default function Todo() {
           flex flex-col max-w-sm md:max-w-none
         `}
       >
-        <div className="flex justify-between items-center p-4 sm:p-5 border-b border-gray-600">
+        {/* Header fixo */}
+        <div className="flex-shrink-0 flex justify-between items-center p-4 sm:p-5 border-b border-gray-600">
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
             <i className="fa-solid fa-dove text-base sm:text-lg md:text-xl"></i> 
             <span>ListFy</span>
@@ -1327,182 +1328,183 @@ export default function Todo() {
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 space-y-2">
-          <button
-            onClick={criarLista}
-            className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
-          >
-            <i className="fa-solid fa-plus text-base"></i>
-            <span>Nova lista</span>
-          </button>
-          
-          <div className="relative">
-            <input
-              id="busca-input-sidebar"
-              type="text"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar tarefas..."
-              className="w-full bg-gray-700 text-white placeholder-gray-400 text-sm p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
-            />
-            <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+        {/* Conteúdo scrollável */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="p-4 sm:p-5 space-y-2">
+            <button
+              onClick={criarLista}
+              className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
+            >
+              <i className="fa-solid fa-plus text-base"></i>
+              <span>Nova lista</span>
+            </button>
+            
+            <div className="relative">
+              <input
+                id="busca-input-sidebar"
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar tarefas..."
+                className="w-full bg-gray-700 text-white placeholder-gray-400 text-sm p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
+              />
+              <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+            </div>
+
+            <button
+              onClick={() => {
+                setModalSyncAberto(true);
+                setAbaSyncAtiva("gerar");
+                setCodigoSync("");
+                setCodigoImportar("");
+              }}
+              className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
+              title="Sincronizar dispositivos"
+            >
+              <i className="fa-solid fa-rotate text-base"></i>
+              <span>Sincronizar</span>
+            </button>
+
+            {temLista && (
+              <button
+                onClick={exportarDados}
+                className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
+                title="Backup dos dados"
+              >
+                <i className="fa-solid fa-download text-base"></i>
+                <span>Exportar dados</span>
+              </button>
+            )}
           </div>
 
-          <button
-            onClick={() => {
-              setModalSyncAberto(true);
-              setAbaSyncAtiva("gerar");
-              setCodigoSync("");
-              setCodigoImportar("");
-            }}
-            className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
-            title="Sincronizar dispositivos"
-          >
-            <i className="fa-solid fa-rotate text-base"></i>
-            <span>Sincronizar</span>
-          </button>
+          <div className="px-4 sm:px-5 mb-4">
+            <button
+              onClick={() => setCategoriasColapsadas(!categoriasColapsadas)}
+              className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors mb-3 touch-manipulation p-1"
+            >
+              <i className={`fa-solid fa-chevron-${categoriasColapsadas ? 'right' : 'down'} text-xs transition-transform`}></i>
+              Categorias
+            </button>
+            
+            {!categoriasColapsadas && (
+              <div className="space-y-2">
+                <button 
+                  onClick={() => mudarFiltro("incompletas")} 
+                  className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
+                    filtro === "incompletas" 
+                      ? "bg-blue-600 text-white shadow-lg" 
+                      : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  }`}
+                >
+                  <i className="fa-solid fa-clock text-base"></i>
+                  <span>Incompletas</span>
+                </button>
+                
+                <button 
+                  onClick={() => mudarFiltro("concluidas")} 
+                  className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
+                    filtro === "concluidas" 
+                      ? "bg-green-600 text-white shadow-lg" 
+                      : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  }`}
+                >
+                  <i className="fa-solid fa-check text-base"></i>
+                  <span>Concluídas</span>
+                </button>
+                
+                <button 
+                  onClick={() => mudarFiltro("importantes")} 
+                  className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
+                    filtro === "importantes" 
+                      ? "bg-yellow-600 text-white shadow-lg" 
+                      : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  }`}
+                >
+                  <i className="fa-solid fa-star text-base"></i>
+                  <span>Importantes</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {temLista && (
-            <button
-              onClick={exportarDados}
-              className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
-              title="Backup dos dados"
-            >
-              <i className="fa-solid fa-download text-base"></i>
-              <span>Exportar dados</span>
-            </button>
-          )}
-        </div>
-
-        <div className="px-4 sm:px-5 mb-4">
-          <button
-            onClick={() => setCategoriasColapsadas(!categoriasColapsadas)}
-            className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors mb-3 touch-manipulation p-1"
-          >
-            <i className={`fa-solid fa-chevron-${categoriasColapsadas ? 'right' : 'down'} text-xs transition-transform`}></i>
-            Categorias
-          </button>
-          
-          {!categoriasColapsadas && (
-            <div className="space-y-2">
-              <button 
-                onClick={() => mudarFiltro("incompletas")} 
-                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
-                  filtro === "incompletas" 
-                    ? "bg-blue-600 text-white shadow-lg" 
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }`}
-              >
-                <i className="fa-solid fa-clock text-base"></i>
-                <span>Incompletas</span>
-              </button>
-              
-              <button 
-                onClick={() => mudarFiltro("concluidas")} 
-                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
-                  filtro === "concluidas" 
-                    ? "bg-green-600 text-white shadow-lg" 
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }`}
-              >
-                <i className="fa-solid fa-check text-base"></i>
-                <span>Concluídas</span>
-              </button>
-              
-              <button 
-                onClick={() => mudarFiltro("importantes")} 
-                className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${
-                  filtro === "importantes" 
-                    ? "bg-yellow-600 text-white shadow-lg" 
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }`}
-              >
-                <i className="fa-solid fa-star text-base"></i>
-                <span>Importantes</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {temLista && (
-          <div className="flex-1 px-4 sm:px-5 overflow-hidden flex flex-col min-h-0">
-            <div className="flex items-center justify-between mb-3">
+            <div className="px-4 sm:px-5 pb-6">
               <button
                 onClick={() => setListasColapsadas(!listasColapsadas)}
-                className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors touch-manipulation p-1"
+                className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors mb-3 touch-manipulation p-1"
               >
                 <i className={`fa-solid fa-chevron-${listasColapsadas ? 'right' : 'down'} text-xs transition-transform`}></i>
                 Minhas Listas
               </button>
-            </div>
-            
-            {!listasColapsadas && (
-              <div className="space-y-1.5 overflow-y-auto flex-1 custom-scrollbar pb-4">
-                {Object.keys(listas).map((nome) => (
-                  <div key={nome} className="group relative">
-                    <button
-                      onClick={() => {
-                        setListaAtiva(nome);
-                        setFiltro("lista");
-                        setBusca("");
-                        setMenuAberto(null);
-                      }}
-                      className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg transition-all duration-200 touch-manipulation ${
-                        listaAtiva === nome && filtro === "lista"
-                          ? "bg-gray-700 text-white border-l-4 border-blue-500"
-                          : "text-gray-300 hover:text-white hover:bg-gray-700"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <i className="fa-solid fa-list text-base"></i>
-                        <span className="truncate text-sm">{nome}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuAberto(menuAberto === nome ? null : nome);
-                          }}
-                          className="sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 hover:text-white transition-all duration-200 p-1.5 rounded hover:bg-gray-600 touch-manipulation"
-                          title="Opções da lista"
-                        >
-                          <i className="fa-solid fa-ellipsis text-base"></i>
-                        </button>
-                      </div>
-                    </button>
-
-                    {menuAberto === nome && (
-                      <div className="absolute right-2 top-12 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-50 min-w-[150px]">
-                        <div className="py-1">
+              
+              {!listasColapsadas && (
+                <div className="space-y-1.5">
+                  {Object.keys(listas).map((nome) => (
+                    <div key={nome} className="group relative">
+                      <button
+                        onClick={() => {
+                          setListaAtiva(nome);
+                          setFiltro("lista");
+                          setBusca("");
+                          setMenuAberto(null);
+                        }}
+                        className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg transition-all duration-200 touch-manipulation ${
+                          listaAtiva === nome && filtro === "lista"
+                            ? "bg-gray-700 text-white border-l-4 border-blue-500"
+                            : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <i className="fa-solid fa-list text-base"></i>
+                          <span className="truncate text-sm">{nome}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              renomearLista(nome);
+                              setMenuAberto(menuAberto === nome ? null : nome);
                             }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-3 touch-manipulation"
+                            className="sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 hover:text-white transition-all duration-200 p-1.5 rounded hover:bg-gray-600 touch-manipulation"
+                            title="Opções da lista"
                           >
-                            <i className="fa-solid fa-pencil text-sm"></i>
-                            Renomear
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              abrirModalExcluirLista(nome);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-gray-700 flex items-center gap-3 touch-manipulation"
-                          >
-                            <i className="fa-solid fa-trash text-sm"></i>
-                            Excluir
+                            <i className="fa-solid fa-ellipsis text-base"></i>
                           </button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                      </button>
+
+                      {menuAberto === nome && (
+                        <div className="absolute right-2 top-12 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-50 min-w-[150px]">
+                          <div className="py-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                renomearLista(nome);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-3 touch-manipulation"
+                            >
+                              <i className="fa-solid fa-pencil text-sm"></i>
+                              Renomear
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                abrirModalExcluirLista(nome);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-gray-700 flex items-center gap-3 touch-manipulation"
+                            >
+                              <i className="fa-solid fa-trash text-sm"></i>
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Área principal */}
