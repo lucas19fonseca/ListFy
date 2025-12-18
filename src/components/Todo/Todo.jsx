@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 export default function Todo() {
   // Estado principal com inicialização segura
@@ -33,6 +33,8 @@ export default function Todo() {
   const [modalExcluirListaAberto, setModalExcluirListaAberto] = useState(false);
   const [modalSyncAberto, setModalSyncAberto] = useState(false);
   const [modalConfirmarImportacao, setModalConfirmarImportacao] = useState(false);
+  const [modalConfirmarImportacaoJson, setModalConfirmarImportacaoJson] = useState(false);
+  const [modalLimparTudoAberto, setModalLimparTudoAberto] = useState(false);
   const [tarefaEditando, setTarefaEditando] = useState(null);
   const [nomeNovaLista, setNomeNovaLista] = useState("");
   const [listaRenomeando, setListaRenomeando] = useState("");
@@ -44,14 +46,14 @@ export default function Todo() {
 
   // Novos estados para melhorias
   const [busca, setBusca] = useState("");
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem("darkMode");
-    return saved ? JSON.parse(saved) : false;
-  });
   const [ordenacao, setOrdenacao] = useState("recente");
   const [menuAberto, setMenuAberto] = useState(null);
   const [listasColapsadas, setListasColapsadas] = useState(false);
   const [categoriasColapsadas, setCategoriasColapsadas] = useState(false);
+  const [modalBackupAberto, setModalBackupAberto] = useState(false);
+  const [abaBackupAtiva, setAbaBackupAtiva] = useState("exportar");
+  const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
+  const [dadosParaImportar, setDadosParaImportar] = useState(null);
 
   // Estados para edição de tarefa
   const [tarefaEditandoTexto, setTarefaEditandoTexto] = useState("");
@@ -59,6 +61,14 @@ export default function Todo() {
   const [tarefaEditandoDescricao, setTarefaEditandoDescricao] = useState("");
   const [tarefaEditandoPrazo, setTarefaEditandoPrazo] = useState("");
   const [tarefaEditandoPrioridade, setTarefaEditandoPrioridade] = useState("normal");
+
+  // Estados para arquivos
+  const [arquivos, setArquivos] = useState([]);
+  const [arquivosTarefaEditando, setArquivosTarefaEditando] = useState([]);
+
+  // Ref para input de arquivo
+  const fileInputRef = useRef(null);
+  const fileInputEdicaoRef = useRef(null);
 
   // Adicionar estilo CSS
   useEffect(() => {
@@ -128,11 +138,6 @@ export default function Todo() {
         animation: slideIn 0.3s ease-out forwards;
       }
 
-      /* Dark mode transitions */
-      * {
-        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-      }
-      
       /* Line clamp utility */
       .line-clamp-2 {
         display: -webkit-box;
@@ -151,6 +156,108 @@ export default function Todo() {
         -webkit-user-select: none;
         user-select: none;
       }
+
+      /* Modal centralizado - correção */
+      .modal-center {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) !important;
+        z-index: 100;
+        margin-left: 0 !important;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+
+      @media (min-width: 768px) {
+        .modal-center {
+          max-width: 32rem;
+        }
+      }
+
+      /* Estilos específicos para o modal de backup */
+      .backup-tab {
+        position: relative;
+        padding-bottom: 12px;
+      }
+      
+      .backup-tab-active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: #3A3A3A;
+        border-radius: 3px 3px 0 0;
+      }
+      
+      .file-dropzone {
+        border: 2px dashed #d1d5db;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      
+      .file-dropzone:hover {
+        border-color: #3A3A3A;
+        background-color: #f9fafb;
+      }
+      
+      .file-dropzone.dragging {
+        border-color: #3A3A3A;
+        background-color: #f3f4f6;
+      }
+      
+      .file-dropzone .icon {
+        font-size: 48px;
+        color: #9ca3af;
+        margin-bottom: 16px;
+      }
+      
+      .file-dropzone:hover .icon {
+        color: #3A3A3A;
+      }
+      
+      /* Estilos para arquivos */
+      .file-preview {
+        transition: all 0.3s ease;
+      }
+      
+      .file-preview:hover {
+        transform: translateY(-2px);
+      }
+      
+      .file-icon-pdf {
+        color: #FF6B6B;
+      }
+      
+      .file-icon-word {
+        color: #2B579A;
+      }
+      
+      .file-icon-excel {
+        color: #217346;
+      }
+      
+      .file-icon-powerpoint {
+        color: #D24726;
+      }
+      
+      /* Adicione responsividade para arquivos */
+      @media (max-width: 640px) {
+        .file-item {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        
+        .file-actions {
+          align-self: flex-end;
+        }
+      }
     `;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
@@ -165,16 +272,6 @@ export default function Todo() {
       setMensagem("Erro ao salvar dados localmente");
     }
   }, [listas]);
-
-  // Salvar dark mode
-  useEffect(() => {
-    localStorage.setItem("darkMode", JSON.stringify(darkMode));
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   // Salvar lista ativa
   useEffect(() => {
@@ -209,6 +306,9 @@ export default function Todo() {
         setModalExcluirListaAberto(false);
         setModalSyncAberto(false);
         setModalConfirmarImportacao(false);
+        setModalConfirmarImportacaoJson(false);
+        setModalLimparTudoAberto(false);
+        setModalBackupAberto(false);
         setMenuAberto(null);
       }
     };
@@ -302,6 +402,123 @@ export default function Todo() {
     return listaAtiva;
   }
 
+  // Funções para manipular arquivos
+  function handleFileUpload(event) {
+    const files = Array.from(event.target.files);
+    
+    // Validar tamanho total (limite de 10MB por arquivo)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const invalidFiles = files.filter(file => file.size > maxSize);
+    
+    if (invalidFiles.length > 0) {
+      setMensagem("Alguns arquivos excedem o limite de 10MB!");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
+    }
+
+    // Ler cada arquivo como base64
+    const filePromises = files.map(file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            id: gerarId(),
+            nome: file.name,
+            tipo: file.type,
+            tamanho: file.size,
+            data: e.target.result, // Base64
+            criadoEm: new Date().toISOString()
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(filePromises).then(arquivosConvertidos => {
+      setArquivos(prev => [...prev, ...arquivosConvertidos]);
+      setMensagem(`${arquivosConvertidos.length} arquivo(s) adicionado(s)`);
+      setTimeout(() => setMensagem(""), 3000);
+    }).catch(error => {
+      console.error("Erro ao ler arquivos:", error);
+      setMensagem("Erro ao carregar arquivos!");
+      setTimeout(() => setMensagem(""), 3000);
+    });
+  }
+
+  function handleFileUploadEdicao(event) {
+    const files = Array.from(event.target.files);
+    
+    const maxSize = 10 * 1024 * 1024;
+    const invalidFiles = files.filter(file => file.size > maxSize);
+    
+    if (invalidFiles.length > 0) {
+      setMensagem("Alguns arquivos excedem o limite de 10MB!");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
+    }
+
+    const filePromises = files.map(file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            id: gerarId(),
+            nome: file.name,
+            tipo: file.type,
+            tamanho: file.size,
+            data: e.target.result,
+            criadoEm: new Date().toISOString()
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(filePromises).then(arquivosConvertidos => {
+      setArquivosTarefaEditando(prev => [...prev, ...arquivosConvertidos]);
+      setMensagem(`${arquivosConvertidos.length} arquivo(s) adicionado(s)`);
+      setTimeout(() => setMensagem(""), 3000);
+    }).catch(error => {
+      console.error("Erro ao ler arquivos:", error);
+      setMensagem("Erro ao carregar arquivos!");
+      setTimeout(() => setMensagem(""), 3000);
+    });
+  }
+
+  function removerArquivo(id) {
+    setArquivos(prev => prev.filter(arquivo => arquivo.id !== id));
+  }
+
+  function removerArquivoEdicao(id) {
+    setArquivosTarefaEditando(prev => prev.filter(arquivo => arquivo.id !== id));
+  }
+
+  function formatarTamanho(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function getFileIcon(tipo) {
+    if (tipo.includes('pdf')) return 'fa-file-pdf';
+    if (tipo.includes('word') || tipo.includes('document')) return 'fa-file-word';
+    if (tipo.includes('excel') || tipo.includes('sheet')) return 'fa-file-excel';
+    if (tipo.includes('powerpoint') || tipo.includes('presentation')) return 'fa-file-powerpoint';
+    if (tipo.includes('image')) return 'fa-file-image';
+    return 'fa-file';
+  }
+
+  function baixarArquivo(arquivo) {
+    const link = document.createElement('a');
+    link.href = arquivo.data;
+    link.download = arquivo.nome;
+    link.click();
+  }
+
   // Adicionar tarefa
   function adicionarTarefa() {
     const texto = novaTarefa.trim();
@@ -336,6 +553,7 @@ export default function Todo() {
       concluida: false,
       importante: false,
       criadaEm: new Date().toISOString(),
+      arquivos: arquivos || [],
     };
 
     setListas({
@@ -349,6 +567,7 @@ export default function Todo() {
     setNovaDescricao("");
     setPrazo("");
     setPrioridade("normal");
+    setArquivos([]);
     setModalAberto(false);
     setTimeout(() => setMensagem(""), 3000);
   }
@@ -379,6 +598,7 @@ export default function Todo() {
       concluida: false,
       importante: false,
       criadaEm: new Date().toISOString(),
+      arquivos: [],
     };
 
     setListas({
@@ -426,6 +646,7 @@ export default function Todo() {
     setTarefaEditandoDescricao(tarefa.descricao || "");
     setTarefaEditandoPrazo(tarefa.prazo || "");
     setTarefaEditandoPrioridade(tarefa.prioridade || "normal");
+    setArquivosTarefaEditando(tarefa.arquivos || []);
     setModalEditarAberto(true);
   }
 
@@ -451,6 +672,7 @@ export default function Todo() {
       descricao: tarefaEditandoDescricao.trim() || "",
       prazo: tarefaEditandoPrazo || "",
       prioridade: tarefaEditandoPrioridade,
+      arquivos: arquivosTarefaEditando || [],
     };
 
     setListas({
@@ -460,6 +682,7 @@ export default function Todo() {
 
     setModalEditarAberto(false);
     setTarefaEditando(null);
+    setArquivosTarefaEditando([]);
     setMensagem("Tarefa editada com sucesso!");
     setTimeout(() => setMensagem(""), 3000);
   }
@@ -468,15 +691,20 @@ export default function Todo() {
   function limparTudo() {
     if (!listas[listaAtiva] || listas[listaAtiva].length === 0) {
       setMensagem("Não há nada para limpar!");
+      setTimeout(() => setMensagem(""), 3000);
     } else {
-      if (window.confirm("Deseja limpar todas as tarefas desta lista?")) {
-        setListas({
-          ...listas,
-          [listaAtiva]: [],
-        });
-        setMensagem("Lista de tarefas limpa com sucesso!");
-      }
+      setModalLimparTudoAberto(true);
     }
+  }
+
+  // Confirmar limpar tudo
+  function confirmarLimparTudo() {
+    setListas({
+      ...listas,
+      [listaAtiva]: [],
+    });
+    setModalLimparTudoAberto(false);
+    setMensagem("Lista de tarefas limpa com sucesso!");
     setTimeout(() => setMensagem(""), 3000);
   }
 
@@ -612,12 +840,12 @@ export default function Todo() {
     return dias <= 2 && dias >= 0;
   }
 
-  // Export de dados
+  // Export de dados (para download direto)
   function exportarDados() {
     const dados = {
       listas,
       exportadoEm: new Date().toISOString(),
-      versao: "1.0"
+      versao: "1.1"
     };
 
     const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
@@ -632,12 +860,123 @@ export default function Todo() {
     setTimeout(() => setMensagem(""), 3000);
   }
 
+  // Função para lidar com seleção de arquivo
+  function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Verificar se é um arquivo JSON
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      setMensagem("Por favor, selecione um arquivo JSON válido.");
+      setTimeout(() => setMensagem(""), 3000);
+      return;
+    }
+
+    setArquivoSelecionado(file);
+
+    // Ler o arquivo
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const conteudo = e.target.result;
+        const dados = JSON.parse(conteudo);
+
+        // Validar estrutura básica
+        if (!dados.listas || !dados.versao) {
+          setMensagem("Arquivo JSON inválido. Certifique-se de que foi exportado do ListFy.");
+          setTimeout(() => setMensagem(""), 3000);
+          setArquivoSelecionado(null);
+          return;
+        }
+
+        // Armazena os dados para confirmação
+        setDadosParaImportar(dados);
+        setModalConfirmarImportacaoJson(true);
+        
+      } catch (error) {
+        console.error("Erro ao ler arquivo:", error);
+        setMensagem("Erro ao ler o arquivo. Certifique-se de que é um JSON válido.");
+        setTimeout(() => setMensagem(""), 3000);
+        setArquivoSelecionado(null);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Função para confirmar importação JSON (adiciona em vez de substituir)
+  function confirmarImportacaoJson() {
+    try {
+      const novasListas = { ...listas };
+      
+      // Adiciona as listas importadas às listas existentes
+      Object.keys(dadosParaImportar.listas).forEach(nomeLista => {
+        // Se a lista já existe, adiciona as tarefas ao final
+        if (novasListas[nomeLista]) {
+          novasListas[nomeLista] = [...novasListas[nomeLista], ...dadosParaImportar.listas[nomeLista]];
+        } else {
+          // Se não existe, cria a lista
+          novasListas[nomeLista] = dadosParaImportar.listas[nomeLista];
+        }
+      });
+
+      setListas(novasListas);
+      
+      // Se não há lista ativa, definir a primeira lista importada
+      if (!listaAtiva && Object.keys(dadosParaImportar.listas).length > 0) {
+        setListaAtiva(Object.keys(dadosParaImportar.listas)[0]);
+        setFiltro("lista");
+      }
+
+      setModalConfirmarImportacaoJson(false);
+      setModalBackupAberto(false);
+      setArquivoSelecionado(null);
+      setDadosParaImportar(null);
+      setMensagem("Backup importado com sucesso! As listas foram adicionadas às suas listas atuais.");
+      setTimeout(() => setMensagem(""), 3000);
+    } catch (error) {
+      console.error("Erro ao importar backup:", error);
+      setMensagem("Erro ao importar backup.");
+      setTimeout(() => setMensagem(""), 3000);
+    }
+  }
+
+  // Função para abrir seletor de arquivos
+  function abrirSeletorArquivos() {
+    fileInputRef.current?.click();
+  }
+
+  // Função para arrastar e soltar arquivos
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.add('dragging');
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('dragging');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('dragging');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      const event = { target: { files: [file] } };
+      handleFileSelect(event);
+    }
+  }
+
   // Sincronização - Gerar código
   function gerarCodigoSync() {
     try {
       const dados = {
         listas,
-        versao: "1.0",
+        versao: "1.1",
         geradoEm: new Date().toISOString()
       };
 
@@ -654,7 +993,7 @@ export default function Todo() {
     }
   }
 
-  // Sincronização - Importar código
+  // Sincronização - Importar código (modificada para adicionar)
   function importarCodigoSync() {
     if (!codigoImportar.trim()) {
       setMensagem("Cole o código de sincronização!");
@@ -670,6 +1009,8 @@ export default function Todo() {
         throw new Error("Código inválido");
       }
 
+      // Armazena os dados para confirmação
+      setDadosParaImportar(dados);
       setModalConfirmarImportacao(true);
     } catch (error) {
       console.error("Erro ao importar código:", error);
@@ -678,22 +1019,35 @@ export default function Todo() {
     }
   }
 
-  // Confirmar importação
+  // Confirmar importação (modificada para adicionar)
   function confirmarImportacao() {
     try {
-      const jsonString = decodeURIComponent(escape(atob(codigoImportar.trim())));
-      const dados = JSON.parse(jsonString);
+      const novasListas = { ...listas };
+      
+      // Adiciona as listas importadas às listas existentes
+      Object.keys(dadosParaImportar.listas).forEach(nomeLista => {
+        // Se a lista já existe, adiciona as tarefas ao final
+        if (novasListas[nomeLista]) {
+          novasListas[nomeLista] = [...novasListas[nomeLista], ...dadosParaImportar.listas[nomeLista]];
+        } else {
+          // Se não existe, cria a lista
+          novasListas[nomeLista] = dadosParaImportar.listas[nomeLista];
+        }
+      });
 
-      setListas(dados.listas);
-      const primeiraLista = Object.keys(dados.listas)[0];
-      if (primeiraLista) {
-        setListaAtiva(primeiraLista);
+      setListas(novasListas);
+      
+      // Se não há lista ativa, definir a primeira lista importada
+      if (!listaAtiva && Object.keys(dadosParaImportar.listas).length > 0) {
+        setListaAtiva(Object.keys(dadosParaImportar.listas)[0]);
         setFiltro("lista");
       }
+      
       setModalConfirmarImportacao(false);
       setModalSyncAberto(false);
       setCodigoImportar("");
-      setMensagem("Listas importadas com sucesso!");
+      setDadosParaImportar(null);
+      setMensagem("Listas importadas com sucesso! Os dados foram adicionados aos seus atuais.");
       setTimeout(() => setMensagem(""), 3000);
     } catch (error) {
       console.error("Erro ao importar:", error);
@@ -718,15 +1072,15 @@ export default function Todo() {
   const temLista = Object.keys(listas).length > 0;
   const tarefasFiltradas = obterTarefasGlobais();
 
-  // Classes para dark mode
-  const bgPrimary = darkMode ? "bg-gray-900" : "bg-[#5e5e5e5e]";
-  const bgSecondary = darkMode ? "bg-gray-800" : "bg-white";
-  const textPrimary = darkMode ? "text-white" : "text-gray-900";
-  const textSecondary = darkMode ? "text-gray-300" : "text-gray-600";
-  const border = darkMode ? "border-gray-600" : "border-gray-300";
+  // Classes para cores
+  const bgPrimary = "bg-[#5e5e5e5e]";
+  const bgSecondary = "bg-white";
+  const textPrimary = "text-gray-900";
+  const textSecondary = "text-gray-600";
+  const border = "border-gray-300";
 
   return (
-    <div className={`flex h-screen min-w-[315px] relative overflow-hidden touch-manipulation ${darkMode ? 'dark bg-gray-900' : 'bg-[#5e5e5e5e]'}`}>
+    <div className={`flex h-screen min-w-[315px] relative overflow-hidden touch-manipulation bg-[#5e5e5e5e]`}>
       {/* Overlay mobile */}
       {sidebarAberta && (
         <div
@@ -735,10 +1089,236 @@ export default function Todo() {
         />
       )}
 
+      {/* Modal de Backup de Dados */}
+      {modalBackupAberto && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl shadow-2xl border ${border} mx-4 max-h-[90vh] overflow-y-auto`}>
+            <div className={`flex items-center justify-between p-6 border-b ${border}`}>
+              <h1 className="text-2xl font-bold">Backup de Dados</h1>
+              <button
+                onClick={() => {
+                  setModalBackupAberto(false);
+                  setArquivoSelecionado(null);
+                  setAbaBackupAtiva("exportar");
+                }}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 transition-colors`}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b ${border}">
+              <button
+                onClick={() => setAbaBackupAtiva("exportar")}
+                className={`flex-1 backup-tab ${abaBackupAtiva === "exportar" ? "backup-tab-active font-semibold" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <div className="py-4 text-center">
+                  <h2 className="text-lg font-medium">Exportar</h2>
+                </div>
+              </button>
+              <button
+                onClick={() => setAbaBackupAtiva("importar")}
+                className={`flex-1 backup-tab ${abaBackupAtiva === "importar" ? "backup-tab-active font-semibold" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <div className="py-4 text-center">
+                  <h2 className="text-lg font-medium">Importar</h2>
+                </div>
+              </button>
+            </div>
+
+            {/* Conteúdo das Tabs */}
+            <div className="p-6">
+              {abaBackupAtiva === "exportar" ? (
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                        <i className="fa-solid fa-database text-blue-600 text-xl"></i>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-blue-900 mb-2">Exportar Backup</h3>
+                        <p className="text-blue-800">
+                          Crie um backup completo de todas as suas listas e tarefas em formato JSON.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-6">
+                    <h4 className="text-lg font-semibold mb-3">Baixar JSON</h4>
+                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <i className="fa-solid fa-file-code text-gray-600"></i>
+                        <span className="font-medium">Formato:</span>
+                        <span className="text-gray-600">JSON (.json)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <i className="fa-solid fa-shield-alt text-gray-600"></i>
+                        <span className="font-medium">Uso:</span>
+                        <span className="text-gray-600">Guarde em local seguro para restaurar depois</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={exportarDados}
+                      className="w-full bg-[#3A3A3A] text-white px-6 py-4 rounded-lg hover:bg-[#4e4e4e] transition font-medium text-lg flex items-center justify-center gap-3 shadow-lg"
+                    >
+                      <i className="fa-solid fa-download"></i>
+                      Baixar Backup
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <i className="fa-solid fa-info-circle text-yellow-600 text-xl"></i>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-yellow-900 mb-2">Informação Importante</h3>
+                        <p className="text-yellow-800">
+                          As listas e tarefas importadas serão <strong>adicionadas</strong> às suas atuais. 
+                          Se houver listas com nomes iguais, as tarefas serão combinadas.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3">Selecione um arquivo JSON</h4>
+                    
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept=".json"
+                      className="hidden"
+                    />
+
+                    <div
+                      className="file-dropzone"
+                      onClick={abrirSeletorArquivos}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
+                      <div className="icon">
+                        <i className="fa-solid fa-cloud-arrow-up"></i>
+                      </div>
+                      <p className="text-gray-600 mb-2">
+                        {arquivoSelecionado ? arquivoSelecionado.name : "Clique para selecionar ou arraste um arquivo"}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Arquivos .json
+                      </p>
+                    </div>
+
+                    {arquivoSelecionado && (
+                      <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <i className="fa-solid fa-circle-check text-green-600"></i>
+                          <div>
+                            <p className="font-medium text-green-900">Arquivo selecionado:</p>
+                            <p className="text-sm text-green-700">{arquivoSelecionado.name}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-6 bg-gray-50 rounded-lg p-4">
+                      <h5 className="font-semibold mb-2">Requisitos:</h5>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li className="flex items-center gap-2">
+                          <i className="fa-solid fa-check text-green-600"></i>
+                          Arquivo JSON válido
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <i className="fa-solid fa-check text-green-600"></i>
+                          Estrutura compatível com ListFy
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <i className="fa-solid fa-check text-green-600"></i>
+                          Exportado do próprio ListFy
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => arquivoSelecionado && confirmarImportacaoJson()}
+                    disabled={!arquivoSelecionado}
+                    className={`w-full px-6 py-4 rounded-lg transition font-medium text-lg flex items-center justify-center gap-3 ${arquivoSelecionado
+                      ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
+                  >
+                    <i className="fa-solid fa-file-import"></i>
+                    Importar Backup
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação para limpar tudo */}
+      {modalLimparTudoAberto && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} mx-4 animate-in`}>
+            <div className={`flex items-start gap-4 p-6 border-b ${border}`}>
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <i className="fa-solid fa-broom text-red-600 text-xl"></i>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-bold mb-1">Limpar lista completa</h2>
+                <p className={`text-sm ${textSecondary}`}>
+                  Tem certeza que deseja limpar todas as tarefas da lista <span className="font-semibold text-red-600">"{listaAtiva}"</span>?
+                </p>
+              </div>
+              <button
+                onClick={() => setModalLimparTudoAberto(false)}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-1 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0`}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <i className="fa-solid fa-triangle-exclamation text-red-600 text-sm mt-0.5"></i>
+                  <p className="text-sm text-red-900">
+                    Esta ação irá remover <strong className="font-bold">{listas[listaAtiva]?.length || 0} tarefas</strong> permanentemente e não pode ser desfeita.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3">
+                <button
+                  onClick={() => setModalLimparTudoAberto(false)}
+                  className={`flex-1 px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-base`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarLimparTudo}
+                  className="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition-all duration-200 font-medium text-base shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
+                >
+                  Sim, limpar tudo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de renomear lista */}
       {modalRenomearListaAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} mx-4`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Renomear Lista</h2>
               <button
@@ -747,7 +1327,7 @@ export default function Todo() {
                   setListaRenomeando("");
                   setNovoNomeLista("");
                 }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 transition-colors`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
@@ -780,7 +1360,7 @@ export default function Todo() {
                     setListaRenomeando("");
                     setNovoNomeLista("");
                   }}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition text-base`}
                 >
                   Cancelar
                 </button>
@@ -792,8 +1372,8 @@ export default function Todo() {
 
       {/* Modal de criar lista */}
       {modalCriarListaAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border}`}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} mx-4`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Nova Lista</h2>
               <button
@@ -801,7 +1381,7 @@ export default function Todo() {
                   setModalCriarListaAberto(false);
                   setNomeNovaLista("");
                 }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 transition-colors`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
@@ -833,7 +1413,7 @@ export default function Todo() {
                     setModalCriarListaAberto(false);
                     setNomeNovaLista("");
                   }}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition text-base`}
                 >
                   Cancelar
                 </button>
@@ -845,13 +1425,16 @@ export default function Todo() {
 
       {/* Modal de adicionar tarefa detalhada */}
       {modalAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border} mx-4`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Nova Tarefa</h2>
               <button
-                onClick={() => setModalAberto(false)}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+                onClick={() => {
+                  setModalAberto(false);
+                  setArquivos([]);
+                }}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 transition-colors`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
@@ -915,6 +1498,74 @@ export default function Todo() {
                 </div>
               </div>
 
+              {/* Seção de Arquivos */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Arquivos Anexados</label>
+                
+                {/* Área de upload */}
+                <div className="mb-4">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="text-4xl text-gray-400 mb-2">
+                      <i className="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <span className="font-medium">Clique para enviar</span> ou arraste os arquivos
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      PDF, Word, Excel, PowerPoint, Imagens (até 10MB cada)
+                    </p>
+                  </label>
+                </div>
+
+                {/* Lista de arquivos anexados */}
+                {arquivos.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700">Arquivos selecionados:</h4>
+                    <div className="max-h-40 overflow-y-auto">
+                      {arquivos.map(arquivo => (
+                        <div
+                          key={arquivo.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${arquivo.tipo.includes('pdf') ? 'bg-red-100 text-red-600' :
+                              arquivo.tipo.includes('word') ? 'bg-blue-100 text-blue-600' :
+                                arquivo.tipo.includes('excel') ? 'bg-green-100 text-green-600' :
+                                  arquivo.tipo.includes('powerpoint') ? 'bg-orange-100 text-orange-600' :
+                                    'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              <i className={`fa-solid ${getFileIcon(arquivo.tipo)} text-lg`}></i>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium truncate max-w-xs">{arquivo.nome}</p>
+                              <p className="text-xs text-gray-500">{formatarTamanho(arquivo.tamanho)}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removerArquivo(arquivo.id)}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <i className="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-col gap-3 mt-6">
                 <button
                   onClick={adicionarTarefa}
@@ -923,8 +1574,11 @@ export default function Todo() {
                   Adicionar Tarefa
                 </button>
                 <button
-                  onClick={() => setModalAberto(false)}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                  onClick={() => {
+                    setModalAberto(false);
+                    setArquivos([]);
+                  }}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition text-base`}
                 >
                   Cancelar
                 </button>
@@ -936,16 +1590,17 @@ export default function Todo() {
 
       {/* Modal de editar tarefa */}
       {modalEditarAberto && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border}`}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full !max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border ${border} mx-4`}>
             <div className={`sticky top-0 ${bgSecondary} flex justify-between items-center p-6 border-b ${border} rounded-t-xl`}>
               <h2 className="text-2xl font-bold">Editar Tarefa</h2>
               <button
                 onClick={() => {
                   setModalEditarAberto(false);
                   setTarefaEditando(null);
+                  setArquivosTarefaEditando([]);
                 }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 transition-colors`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
@@ -1009,6 +1664,85 @@ export default function Todo() {
                 </div>
               </div>
 
+              {/* Seção de Arquivos */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Arquivos Anexados</label>
+                
+                {/* Área de upload */}
+                <div className="mb-4">
+                  <input
+                    type="file"
+                    id="file-upload-edicao"
+                    ref={fileInputEdicaoRef}
+                    multiple
+                    onChange={handleFileUploadEdicao}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
+                  />
+                  <label
+                    htmlFor="file-upload-edicao"
+                    className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="text-4xl text-gray-400 mb-2">
+                      <i className="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <span className="font-medium">Clique para enviar</span> ou arraste os arquivos
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Adicionar mais arquivos
+                    </p>
+                  </label>
+                </div>
+
+                {/* Lista de arquivos anexados */}
+                {arquivosTarefaEditando.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700">Arquivos anexados:</h4>
+                    <div className="max-h-40 overflow-y-auto">
+                      {arquivosTarefaEditando.map(arquivo => (
+                        <div
+                          key={arquivo.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${arquivo.tipo.includes('pdf') ? 'bg-red-100 text-red-600' :
+                              arquivo.tipo.includes('word') ? 'bg-blue-100 text-blue-600' :
+                                arquivo.tipo.includes('excel') ? 'bg-green-100 text-green-600' :
+                                  arquivo.tipo.includes('powerpoint') ? 'bg-orange-100 text-orange-600' :
+                                    'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              <i className={`fa-solid ${getFileIcon(arquivo.tipo)} text-lg`}></i>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium truncate max-w-xs">{arquivo.nome}</p>
+                              <p className="text-xs text-gray-500">{formatarTamanho(arquivo.tamanho)}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => baixarArquivo(arquivo)}
+                              className="text-blue-500 hover:text-blue-700 p-1"
+                              title="Baixar arquivo"
+                            >
+                              <i className="fa-solid fa-download"></i>
+                            </button>
+                            <button
+                              onClick={() => removerArquivoEdicao(arquivo.id)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="Remover arquivo"
+                            >
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-col gap-3 mt-6">
                 <button
                   onClick={salvarEdicaoTarefa}
@@ -1020,8 +1754,9 @@ export default function Todo() {
                   onClick={() => {
                     setModalEditarAberto(false);
                     setTarefaEditando(null);
+                    setArquivosTarefaEditando([]);
                   }}
-                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                  className={`w-full px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition text-base`}
                 >
                   Cancelar
                 </button>
@@ -1031,42 +1766,147 @@ export default function Todo() {
         </div>
       )}
 
-      {/* Modal de confirmação de importação */}
-      {modalConfirmarImportacao && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} animate-in`}>
+      {/* Modal de confirmação de importação JSON */}
+      {modalConfirmarImportacaoJson && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} mx-4 animate-in`}>
             <div className={`flex items-start gap-4 p-6 border-b ${border}`}>
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <i className="fa-solid fa-file-import text-blue-600 dark:text-blue-400 text-xl"></i>
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <i className="fa-solid fa-file-import text-blue-600 text-xl"></i>
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold mb-1">Importar Listas</h2>
+                <h2 className="text-xl font-bold mb-1">Importar Backup</h2>
                 <p className={`text-sm ${textPrimary}`}>
-                  Deseja importar as listas? Isso substituirá suas listas atuais.
+                  Deseja importar o backup do arquivo?
                 </p>
               </div>
               <button
-                onClick={() => setModalConfirmarImportacao(false)}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0`}
+                onClick={() => {
+                  setModalConfirmarImportacaoJson(false);
+                  setDadosParaImportar(null);
+                }}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-1 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
             <div className="p-6">
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <div className="flex items-start gap-3">
-                  <i className="fa-solid fa-triangle-exclamation text-yellow-600 dark:text-yellow-400 text-sm mt-0.5"></i>
-                  <p className="text-sm text-yellow-900 dark:text-yellow-100">
-                    <strong>Atenção:</strong> Todas as suas listas e tarefas atuais serão substituídas pelos dados importados. Esta ação não pode ser desfeita.
+                  <i className="fa-solid fa-info-circle text-blue-600 text-sm mt-0.5"></i>
+                  <div className="text-sm text-blue-900">
+                    <p className="font-medium mb-1">Resumo da importação:</p>
+                    <ul className="space-y-1 text-xs text-blue-800">
+                      <li className="flex items-center justify-between">
+                        <span>Listas importadas:</span>
+                        <span className="font-semibold">{Object.keys(dadosParaImportar?.listas || {}).length}</span>
+                      </li>
+                      <li className="flex items-center justify-between">
+                        <span>Tarefas totais:</span>
+                        <span className="font-semibold">
+                          {Object.values(dadosParaImportar?.listas || {}).reduce((acc, lista) => acc + lista.length, 0)}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <i className="fa-solid fa-triangle-exclamation text-yellow-600 text-sm mt-0.5"></i>
+                  <p className="text-sm text-yellow-900">
+                    <strong>Importante:</strong> As listas importadas serão <strong>adicionadas</strong> às suas listas atuais. Se houver listas com nomes iguais, as tarefas serão combinadas.
                   </p>
                 </div>
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row gap-3">
                 <button
-                  onClick={() => setModalConfirmarImportacao(false)}
-                  className={`flex-1 px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 font-medium text-base`}
+                  onClick={() => {
+                    setModalConfirmarImportacaoJson(false);
+                    setDadosParaImportar(null);
+                  }}
+                  className={`flex-1 px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-base`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarImportacaoJson}
+                  className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-base shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50"
+                >
+                  Sim, importar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação de importação (SINCRONIZAÇÃO) */}
+      {modalConfirmarImportacao && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} mx-4 animate-in`}>
+            <div className={`flex items-start gap-4 p-6 border-b ${border}`}>
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <i className="fa-solid fa-file-import text-blue-600 text-xl"></i>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-bold mb-1">Importar Listas</h2>
+                <p className={`text-sm ${textPrimary}`}>
+                  Deseja importar as listas do código?
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setModalConfirmarImportacao(false);
+                  setDadosParaImportar(null);
+                }}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-1 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0`}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <i className="fa-solid fa-info-circle text-blue-600 text-sm mt-0.5"></i>
+                  <div className="text-sm text-blue-900">
+                    <p className="font-medium mb-1">Resumo da importação:</p>
+                    <ul className="space-y-1 text-xs text-blue-800">
+                      <li className="flex items-center justify-between">
+                        <span>Listas importadas:</span>
+                        <span className="font-semibold">{Object.keys(dadosParaImportar?.listas || {}).length}</span>
+                      </li>
+                      <li className="flex items-center justify-between">
+                        <span>Tarefas totais:</span>
+                        <span className="font-semibold">
+                          {Object.values(dadosParaImportar?.listas || {}).reduce((acc, lista) => acc + lista.length, 0)}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <i className="fa-solid fa-triangle-exclamation text-yellow-600 text-sm mt-0.5"></i>
+                  <p className="text-sm text-yellow-900">
+                    <strong>Importante:</strong> As listas importadas serão <strong>adicionadas</strong> às suas listas atuais. Se houver listas com nomes iguais, as tarefas serão combinadas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setModalConfirmarImportacao(false);
+                    setDadosParaImportar(null);
+                  }}
+                  className={`flex-1 px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-base`}
                 >
                   Cancelar
                 </button>
@@ -1084,8 +1924,8 @@ export default function Todo() {
 
       {/* Modal de sincronização */}
       {modalSyncAberto && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto md:pl-72 lg:pl-80">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl my-8 shadow-2xl border ${border} animate-in`}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-2xl shadow-2xl border ${border} mx-4 max-h-[90vh] overflow-y-auto`}>
             <div className={`flex items-center justify-between p-6 border-b ${border}`}>
               <h2 className="text-2xl font-bold">Sincronizar Dispositivos</h2>
               <button
@@ -1094,18 +1934,18 @@ export default function Todo() {
                   setCodigoSync("");
                   setCodigoImportar("");
                 }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-2 rounded-lg hover:bg-gray-100 transition-colors`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
-            <div className="flex border-b border-gray-200 dark:border-gray-700">
+            <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setAbaSyncAtiva("gerar")}
                 className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${abaSyncAtiva === "gerar"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
-                    : `${textSecondary} hover:text-gray-900 dark:hover:text-white`
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : `${textSecondary} hover:text-gray-900`
                   }`}
               >
                 <i className="fa-solid fa-qrcode mr-2"></i>
@@ -1114,8 +1954,8 @@ export default function Todo() {
               <button
                 onClick={() => setAbaSyncAtiva("importar")}
                 className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${abaSyncAtiva === "importar"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
-                    : `${textSecondary} hover:text-gray-900 dark:hover:text-white`
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : `${textSecondary} hover:text-gray-900`
                   }`}
               >
                 <i className="fa-solid fa-file-import mr-2"></i>
@@ -1126,12 +1966,12 @@ export default function Todo() {
             <div className="p-6">
               {abaSyncAtiva === "gerar" && (
                 <div className="space-y-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <i className="fa-solid fa-info-circle text-blue-600 dark:text-blue-400 text-lg mt-0.5"></i>
-                      <div className="text-sm text-blue-900 dark:text-blue-100">
+                      <i className="fa-solid fa-info-circle text-blue-600 text-lg mt-0.5"></i>
+                      <div className="text-sm text-blue-900">
                         <p className="font-medium mb-1">Como funciona:</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-blue-800 dark:text-blue-200">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-blue-800">
                           <li>Clique em "Gerar Código" abaixo</li>
                           <li>Copie o código completo que aparecer</li>
                           <li>No outro dispositivo, cole na aba "Importar Código"</li>
@@ -1150,19 +1990,19 @@ export default function Todo() {
                     </button>
                   ) : (
                     <div className="space-y-4">
-                      <div className={`${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-lg p-4`}>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Dados a sincronizar:</p>
+                      <div className="bg-gray-100 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Dados a sincronizar:</p>
                         <div className="flex items-center justify-around">
                           <div className="text-center">
-                            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{Object.keys(listas).length}</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Listas</div>
+                            <div className="text-3xl font-bold text-blue-600">{Object.keys(listas).length}</div>
+                            <div className="text-xs text-gray-600 mt-1">Listas</div>
                           </div>
-                          <div className="w-px h-12 bg-gray-300 dark:bg-gray-600"></div>
+                          <div className="w-px h-12 bg-gray-300"></div>
                           <div className="text-center">
-                            <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                            <div className="text-3xl font-bold text-green-600">
                               {Object.values(listas).reduce((acc, lista) => acc + lista.length, 0)}
                             </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Tarefas</div>
+                            <div className="text-xs text-gray-600 mt-1">Tarefas</div>
                           </div>
                         </div>
                       </div>
@@ -1186,7 +2026,7 @@ export default function Todo() {
                         </button>
                         <button
                           onClick={() => setCodigoSync("")}
-                          className={`px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-base`}
+                          className={`px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition text-base`}
                           title="Gerar novo código"
                         >
                           <i className="fa-solid fa-rotate-right"></i>
@@ -1199,12 +2039,12 @@ export default function Todo() {
 
               {abaSyncAtiva === "importar" && (
                 <div className="space-y-4">
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <i className="fa-solid fa-triangle-exclamation text-yellow-600 dark:text-yellow-400 text-lg mt-0.5"></i>
-                      <div className="text-sm text-yellow-900 dark:text-yellow-100">
+                      <i className="fa-solid fa-triangle-exclamation text-yellow-600 text-lg mt-0.5"></i>
+                      <div className="text-sm text-yellow-900">
                         <p className="font-medium mb-1">Atenção:</p>
-                        <p className="text-xs text-yellow-800 dark:text-yellow-200">Importar um código substituirá todas as suas listas atuais. Exporte um backup antes se necessário.</p>
+                        <p className="text-xs text-yellow-800">As listas importadas serão adicionadas às suas listas atuais.</p>
                       </div>
                     </div>
                   </div>
@@ -1223,8 +2063,8 @@ export default function Todo() {
                     onClick={importarCodigoSync}
                     disabled={!codigoImportar.trim()}
                     className={`w-full px-6 py-3 rounded-lg transition font-medium text-base flex items-center justify-center gap-2 ${codigoImportar.trim()
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       }`}
                   >
                     <i className="fa-solid fa-file-import"></i>
@@ -1239,16 +2079,16 @@ export default function Todo() {
 
       {/* Modal de excluir lista */}
       {modalExcluirListaAberto && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:pl-72 lg:pl-80">
-          <div className={`${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} animate-in`}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]">
+          <div className={`modal-center ${bgSecondary} ${textPrimary} rounded-xl w-full max-w-md shadow-2xl border ${border} mx-4 animate-in`}>
             <div className={`flex items-start gap-4 p-6 border-b ${border}`}>
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <i className="fa-solid fa-triangle-exclamation text-red-600 dark:text-red-400 text-xl"></i>
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <i className="fa-solid fa-triangle-exclamation text-red-600 text-xl"></i>
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-bold mb-1">Excluir lista</h2>
                 <p className={`text-sm ${textSecondary}`}>
-                  Tem certeza que deseja excluir a lista <span className="font-semibold text-red-600 dark:text-red-400">"{listaExcluindo}"</span>?
+                  Tem certeza que deseja excluir a lista <span className="font-semibold text-red-600">"{listaExcluindo}"</span>?
                 </p>
               </div>
               <button
@@ -1256,17 +2096,17 @@ export default function Todo() {
                   setModalExcluirListaAberto(false);
                   setListaExcluindo("");
                 }}
-                className={`${textSecondary} hover:${textPrimary} text-xl p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0`}
+                className={`${textSecondary} hover:${textPrimary} text-xl p-1 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0`}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
             <div className="p-6">
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                 <div className="flex items-start gap-3">
-                  <i className="fa-solid fa-info-circle text-red-600 dark:text-red-400 text-sm mt-0.5"></i>
-                  <p className="text-sm text-red-900 dark:text-red-100">
+                  <i className="fa-solid fa-info-circle text-red-600 text-sm mt-0.5"></i>
+                  <p className="text-sm text-red-900">
                     Esta ação não pode ser desfeita. Todas as tarefas desta lista serão permanentemente excluídas.
                   </p>
                 </div>
@@ -1278,7 +2118,7 @@ export default function Todo() {
                     setModalExcluirListaAberto(false);
                     setListaExcluindo("");
                   }}
-                  className={`flex-1 px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 font-medium text-base`}
+                  className={`flex-1 px-4 py-3 border ${border} rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-base`}
                 >
                   Cancelar
                 </button>
@@ -1309,13 +2149,6 @@ export default function Todo() {
             <span>ListFy</span>
           </h2>
           <div className="flex gap-1.5 sm:gap-2">
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="text-gray-400 hover:text-white transition p-2 sm:p-2.5 rounded text-base touch-manipulation"
-              title="Toggle Dark Mode"
-            >
-              <i className={`fa-solid ${darkMode ? 'fa-sun' : 'fa-moon'}`}></i>
-            </button>
             <button
               className="md:hidden text-gray-400 hover:text-white transition p-2 sm:p-2.5 rounded text-base touch-manipulation"
               onClick={toggleSidebar}
@@ -1350,6 +2183,19 @@ export default function Todo() {
 
             <button
               onClick={() => {
+                setModalBackupAberto(true);
+                setAbaBackupAtiva("exportar");
+                setArquivoSelecionado(null);
+              }}
+              className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
+              title="Backup de dados"
+            >
+              <i className="fa-solid fa-database text-base"></i>
+              <span>Backup de Dados</span>
+            </button>
+
+            <button
+              onClick={() => {
                 setModalSyncAberto(true);
                 setAbaSyncAtiva("gerar");
                 setCodigoSync("");
@@ -1361,17 +2207,6 @@ export default function Todo() {
               <i className="fa-solid fa-rotate text-base"></i>
               <span>Sincronizar</span>
             </button>
-
-            {temLista && (
-              <button
-                onClick={exportarDados}
-                className="w-full flex items-center gap-3 p-3 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm touch-manipulation"
-                title="Backup dos dados"
-              >
-                <i className="fa-solid fa-download text-base"></i>
-                <span>Exportar dados</span>
-              </button>
-            )}
           </div>
 
           <div className="px-4 sm:px-5 mb-4">
@@ -1388,8 +2223,8 @@ export default function Todo() {
                 <button
                   onClick={() => mudarFiltro("incompletas")}
                   className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${filtro === "incompletas"
-                      ? "bg-blue-600 text-white shadow-lg"
-                      : "text-gray-300 hover:text-white hover:bg-gray-700"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-gray-300 hover:text-white hover:bg-gray-700"
                     }`}
                 >
                   <i className="fa-solid fa-clock text-base"></i>
@@ -1399,8 +2234,8 @@ export default function Todo() {
                 <button
                   onClick={() => mudarFiltro("concluidas")}
                   className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${filtro === "concluidas"
-                      ? "bg-green-600 text-white shadow-lg"
-                      : "text-gray-300 hover:text-white hover:bg-gray-700"
+                    ? "bg-green-600 text-white shadow-lg"
+                    : "text-gray-300 hover:text-white hover:bg-gray-700"
                     }`}
                 >
                   <i className="fa-solid fa-check text-base"></i>
@@ -1410,8 +2245,8 @@ export default function Todo() {
                 <button
                   onClick={() => mudarFiltro("importantes")}
                   className={`w-full flex items-center gap-3 p-3 text-sm rounded-lg transition-all duration-200 touch-manipulation ${filtro === "importantes"
-                      ? "bg-yellow-600 text-white shadow-lg"
-                      : "text-gray-300 hover:text-white hover:bg-gray-700"
+                    ? "bg-yellow-600 text-white shadow-lg"
+                    : "text-gray-300 hover:text-white hover:bg-gray-700"
                     }`}
                 >
                   <i className="fa-solid fa-star text-base"></i>
@@ -1443,8 +2278,8 @@ export default function Todo() {
                           setMenuAberto(null);
                         }}
                         className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg transition-all duration-200 touch-manipulation ${listaAtiva === nome && filtro === "lista"
-                            ? "bg-gray-700 text-white border-l-4 border-blue-500"
-                            : "text-gray-300 hover:text-white hover:bg-gray-700"
+                          ? "bg-gray-700 text-white border-l-4 border-blue-500"
+                          : "text-gray-300 hover:text-white hover:bg-gray-700"
                           }`}
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1569,16 +2404,16 @@ export default function Todo() {
                 </div>
 
                 {filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes" ? (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="text-blue-600 dark:text-blue-400 text-xl sm:text-2xl flex-shrink-0 mt-0.5">
+                      <div className="text-blue-600 text-xl sm:text-2xl flex-shrink-0 mt-0.5">
                         <i className="fa-solid fa-info-circle"></i>
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1 text-sm sm:text-base">
+                        <h3 className="font-semibold text-blue-900 mb-1 text-sm sm:text-base">
                           Visualização: {obterTituloAtual()}
                         </h3>
-                        <p className="text-blue-800 dark:text-blue-200 text-xs sm:text-sm">
+                        <p className="text-blue-800 text-xs sm:text-sm">
                           Selecione uma lista específica na barra lateral para adicionar novas tarefas.
                         </p>
                       </div>
@@ -1588,8 +2423,8 @@ export default function Todo() {
 
                 {mensagem && (
                   <div className={`mb-3 sm:mb-4 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium ${mensagem.includes("sucesso")
-                      ? "bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 border border-green-200 dark:border-green-800"
-                      : "bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 border border-red-200 dark:border-red-800"
+                    ? "bg-green-50 text-green-900 border border-green-200"
+                    : "bg-red-50 text-red-900 border border-red-200"
                     }`}>
                     <div className="flex items-center gap-2">
                       <i className={`fa-solid ${mensagem.includes("sucesso") ? "fa-circle-check" : "fa-circle-exclamation"}`}></i>
@@ -1616,23 +2451,24 @@ export default function Todo() {
                       {tarefasFiltradas.map((tarefa, index) => (
                         <li
                           key={tarefa.id || index}
-                          className={`group ${bgSecondary} rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-3 sm:p-4 border ${tarefa.concluida ? 'border-gray-300 dark:border-gray-700 opacity-60' : border
+                          className={`group ${bgSecondary} rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-3 sm:p-4 border ${tarefa.concluida ? 'border-gray-300 opacity-60' : border
                             } ${tarefa.prioridade === "alta"
                               ? "border-l-4 border-l-red-500"
                               : tarefa.prioridade === "baixa"
                                 ? "border-l-4 border-l-green-500"
                                 : "border-l-4 border-l-blue-500"
-                            } hover:border-gray-400 dark:hover:border-gray-500 touch-manipulation`}
+                            } hover:border-gray-400 touch-manipulation`}
                         >
                           <div className="flex items-start gap-2 sm:gap-3">
                             <button
                               onClick={() => toggleConcluida(tarefa)}
                               className={`flex-shrink-0 transition-all duration-200 mt-0.5 touch-manipulation p-1 ${tarefa.concluida
-                                  ? "text-green-600 scale-110"
-                                  : `${textSecondary} hover:text-green-600 hover:scale-110`
+                                ? "text-green-600 scale-110"
+                                : `${textSecondary} hover:text-green-600 hover:scale-110`
                                 }`}
                             >
-                              <i className={`fa-${tarefa.concluida ? "solid" : "regular"} fa-circle-check pt-1 text-xl sm:text-2xl`}></i>                        </button>
+                              <i className={`fa-${tarefa.concluida ? "solid" : "regular"} fa-circle-check pt-1 text-xl sm:text-2xl`}></i>
+                            </button>
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
@@ -1644,7 +2480,7 @@ export default function Todo() {
                                 </span>
 
                                 {(filtro === "incompletas" || filtro === "concluidas" || filtro === "importantes") && (
-                                  <span className={`text-xs ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'} px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0`}>
+                                  <span className={`text-xs bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0`}>
                                     {tarefa.nomeLista}
                                   </span>
                                 )}
@@ -1658,8 +2494,8 @@ export default function Todo() {
                                 {tarefa.prioridade && tarefa.prioridade !== "normal" && (
                                   <span
                                     className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${tarefa.prioridade === "alta"
-                                        ? "bg-red-100 text-black dark:text-red-900"
-                                        : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                      ? "bg-red-100 text-black"
+                                      : "bg-green-100 text-green-700"
                                       }`}
                                   >
                                     {tarefa.prioridade === "alta" ? "Alta" : "Baixa"}
@@ -1678,7 +2514,7 @@ export default function Todo() {
                                       href={tarefa.link}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 touch-manipulation"
+                                      className="text-blue-600 hover:underline flex items-center gap-1 touch-manipulation"
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <i className="fa-solid fa-link"></i>
@@ -1688,8 +2524,8 @@ export default function Todo() {
                                   {tarefa.prazo && (
                                     <span
                                       className={`flex items-center gap-1 ${verificarPrazo(tarefa.prazo)
-                                          ? "text-red-600 dark:text-red-400 font-semibold"
-                                          : textSecondary
+                                        ? "text-red-600 font-semibold"
+                                        : textSecondary
                                         }`}
                                     >
                                       <i className="fa-solid fa-calendar"></i>
@@ -1699,14 +2535,40 @@ export default function Todo() {
                                   )}
                                 </div>
                               )}
+
+                              {/* Seção de arquivos anexados */}
+                              {tarefa.arquivos && tarefa.arquivos.length > 0 && (
+                                <div className="mt-2">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {tarefa.arquivos.map(arquivo => (
+                                      <button
+                                        key={arquivo.id}
+                                        onClick={() => baixarArquivo(arquivo)}
+                                        className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-700 transition-colors touch-manipulation"
+                                        title={`Baixar ${arquivo.nome}`}
+                                      >
+                                        <i className={`fa-solid ${getFileIcon(arquivo.tipo)} ${arquivo.tipo.includes('pdf') ? 'text-red-500' :
+                                          arquivo.tipo.includes('word') ? 'text-blue-500' :
+                                            arquivo.tipo.includes('excel') ? 'text-green-500' :
+                                              arquivo.tipo.includes('powerpoint') ? 'text-orange-500' :
+                                                'text-gray-500'
+                                          }`}
+                                        ></i>
+                                        <span className="truncate max-w-[100px]">{arquivo.nome.split('.')[0]}</span>
+                                        <span className="text-gray-500">.{arquivo.nome.split('.').pop()}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex gap-0.5 sm:gap-1 transition-opacity duration-200 flex-shrink-0">
                               <button
                                 onClick={() => toggleImportante(tarefa)}
                                 className={`p-1.5 sm:p-2 rounded-lg transition-all duration-200 touch-manipulation ${tarefa.importante
-                                    ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
-                                    : `${textSecondary} hover:bg-gray-100  hover:text-yellow-500`
+                                  ? "text-yellow-500 bg-yellow-50"
+                                  : `${textSecondary} hover:bg-gray-100 hover:text-yellow-500`
                                   }`}
                                 title="Importante"
                               >
@@ -1721,7 +2583,7 @@ export default function Todo() {
                               </button>
                               <button
                                 onClick={() => removerTarefa(tarefa)}
-                                className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-all duration-200 hover:scale-110 touch-manipulation"
+                                className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 text-red-600 transition-all duration-200 hover:scale-110 touch-manipulation"
                                 title="Remover"
                               >
                                 <i className="fa-solid fa-trash !text-xl sm:text-sm"></i>
@@ -1740,7 +2602,7 @@ export default function Todo() {
 
         {temLista && filtro === "lista" && (
           <>
-            <div className={`fixed bottom-0 left-0 right-0 md:left-72 lg:left-80 h-32 sm:h-40 bg-gradient-to-t ${darkMode ? 'from-gray-900 via-gray-900/98' : 'from-[#5e5e5e5e] via-[#5e5e5e5e]/98'} to-transparent pointer-events-none z-10`}></div>
+            <div className={`fixed bottom-0 left-0 right-0 md:left-72 lg:left-80 h-32 sm:h-40 bg-gradient-to-t from-[#5e5e5e5e] via-[#5e5e5e5e]/98 to-transparent pointer-events-none z-10`}></div>
 
             <div className="fixed bottom-0 left-0 right-0 md:left-72 lg:left-80 p-3 sm:p-4 z-20">
               <div className="max-w-6xl mx-auto">
@@ -1761,11 +2623,11 @@ export default function Todo() {
                       onChange={(e) => setNovaTarefa(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && adicionarTarefaRapida()}
                       placeholder="Adicionar tarefa..."
-                      className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm sm:text-base  touch-manipulation"
+                      className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm sm:text-base touch-manipulation"
                     />
 
                     <button
-                      onClick={limparTudo}
+                      onClick={() => setModalLimparTudoAberto(true)}
                       className="text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200 flex-shrink-0 p-1.5 sm:p-2 touch-manipulation"
                       title="Limpar lista"
                     >
@@ -1776,8 +2638,8 @@ export default function Todo() {
                       onClick={adicionarTarefaRapida}
                       disabled={!novaTarefa.trim()}
                       className={`p-2 sm:p-2.5 rounded-xl transition-all duration-200 flex-shrink-0 touch-manipulation ${novaTarefa.trim()
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95'
-                          : 'bg-gray-700/50 text-gray-600 cursor-not-allowed'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95'
+                        : 'bg-gray-700/50 text-gray-600 cursor-not-allowed'
                         }`}
                       title="Enviar (Enter)"
                     >
