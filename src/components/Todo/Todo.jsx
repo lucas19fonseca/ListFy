@@ -70,7 +70,7 @@ export default function Todo() {
   const fileInputRef = useRef(null);
   const fileInputEdicaoRef = useRef(null);
 
-  // Adicionar estilo CSS
+  // Adicionar estilo CSS com correções para mobile
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -149,12 +149,62 @@ export default function Todo() {
       /* Touch manipulation for better mobile experience */
       .touch-manipulation {
         -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
       }
       
       /* Prevent text selection on buttons */
       button {
         -webkit-user-select: none;
         user-select: none;
+      }
+
+      /* CORREÇÃO DO ZOOM NO MOBILE */
+      /* Impede zoom automático no iOS */
+      @media screen and (max-width: 768px) {
+        input, 
+        textarea, 
+        select {
+          font-size: 16px !important; /* Tamanho mínimo para evitar zoom no iOS */
+        }
+        
+        /* Input de busca */
+        #busca-input,
+        #busca-input-sidebar {
+          font-size: 16px !important;
+        }
+        
+        /* Input do modal */
+        .modal-center input,
+        .modal-center textarea,
+        .modal-center select {
+          font-size: 16px !important;
+        }
+      }
+      
+      /* Desabilita zoom por toque duplo */
+      * {
+        touch-action: manipulation;
+      }
+      
+      /* Para inputs específicos */
+      input[type="text"],
+      input[type="url"],
+      input[type="date"],
+      input[type="search"],
+      textarea {
+        font-size: 16px !important;
+        max-height: none !important;
+      }
+      
+      /* Para iOS Safari específico */
+      @supports (-webkit-touch-callout: none) {
+        input, 
+        textarea, 
+        select {
+          font-size: 16px !important;
+        }
       }
 
       /* Modal centralizado - correção */
@@ -260,7 +310,16 @@ export default function Todo() {
       }
     `;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    
+    // Adiciona meta tag para viewport corrigida
+    const metaViewport = document.querySelector('meta[name="viewport"]');
+    if (metaViewport) {
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0');
+    }
+    
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
 
   // Salvar no localStorage
@@ -1344,6 +1403,7 @@ export default function Todo() {
                   placeholder="Digite o novo nome da lista..."
                   autoFocus
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1398,6 +1458,7 @@ export default function Todo() {
                   placeholder="Ex: Trabalho, Estudos, Casa..."
                   autoFocus
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1449,6 +1510,7 @@ export default function Todo() {
                   onChange={(e) => setNovaTarefa(e.target.value)}
                   placeholder="Ex: Estudar React"
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1459,6 +1521,7 @@ export default function Todo() {
                   onChange={(e) => setNovaDescricao(e.target.value)}
                   placeholder="Adicione detalhes sobre a tarefa..."
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none h-24 resize-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1470,6 +1533,7 @@ export default function Todo() {
                   onChange={(e) => setNovoLink(e.target.value)}
                   placeholder="https://exemplo.com"
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1481,6 +1545,7 @@ export default function Todo() {
                     value={prazo}
                     onChange={(e) => setPrazo(e.target.value)}
                     className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                    style={{ fontSize: '16px' }}
                   />
                 </div>
 
@@ -1490,6 +1555,7 @@ export default function Todo() {
                     value={prioridade}
                     onChange={(e) => setPrioridade(e.target.value)}
                     className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                    style={{ fontSize: '16px' }}
                   >
                     <option value="baixa">Baixa</option>
                     <option value="normal">Normal</option>
@@ -1615,6 +1681,7 @@ export default function Todo() {
                   onChange={(e) => setTarefaEditandoTexto(e.target.value)}
                   placeholder="Ex: Estudar React"
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1625,6 +1692,7 @@ export default function Todo() {
                   onChange={(e) => setTarefaEditandoDescricao(e.target.value)}
                   placeholder="Adicione detalhes sobre a tarefa..."
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none h-24 resize-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1636,6 +1704,7 @@ export default function Todo() {
                   onChange={(e) => setTarefaEditandoLink(e.target.value)}
                   placeholder="https://exemplo.com"
                   className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -1647,6 +1716,7 @@ export default function Todo() {
                     value={tarefaEditandoPrazo}
                     onChange={(e) => setTarefaEditandoPrazo(e.target.value)}
                     className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                    style={{ fontSize: '16px' }}
                   />
                 </div>
 
@@ -1656,6 +1726,7 @@ export default function Todo() {
                     value={tarefaEditandoPrioridade}
                     onChange={(e) => setTarefaEditandoPrioridade(e.target.value)}
                     className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-base ${bgSecondary} ${textPrimary}`}
+                    style={{ fontSize: '16px' }}
                   >
                     <option value="baixa">Baixa</option>
                     <option value="normal">Normal</option>
@@ -2013,6 +2084,7 @@ export default function Todo() {
                           value={codigoSync}
                           readOnly
                           className={`w-full p-3 border ${border} rounded-lg text-xs font-mono ${bgSecondary} ${textPrimary} h-32 resize-none`}
+                          style={{ fontSize: '14px' }}
                         />
                       </div>
 
@@ -2056,6 +2128,7 @@ export default function Todo() {
                       onChange={(e) => setCodigoImportar(e.target.value)}
                       placeholder="Cole o código de sincronização completo aqui..."
                       className={`w-full p-3 border ${border} rounded-lg focus:border-blue-500 focus:outline-none text-xs font-mono ${bgSecondary} ${textPrimary} h-32 resize-none`}
+                      style={{ fontSize: '14px' }}
                     />
                   </div>
 
@@ -2177,6 +2250,7 @@ export default function Todo() {
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Buscar tarefas..."
                 className="w-full bg-gray-700 text-white placeholder-gray-400 text-sm p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
+                style={{ fontSize: '16px' }}
               />
               <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
             </div>
@@ -2377,6 +2451,7 @@ export default function Todo() {
                           value={ordenacao}
                           onChange={(e) => setOrdenacao(e.target.value)}
                           className={`appearance-none pl-3 pr-8 py-2 sm:py-2.5 border ${border} rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm ${bgSecondary} ${textPrimary} cursor-pointer min-w-[120px] sm:min-w-[140px] transition-all touch-manipulation`}
+                          style={{ fontSize: '16px' }}
                         >
                           <option value="recente">Mais recente</option>
                           <option value="alfabetica">A-Z</option>
@@ -2397,6 +2472,7 @@ export default function Todo() {
                         onChange={(e) => setBusca(e.target.value)}
                         placeholder="Buscar tarefas..."
                         className={`w-full p-3 sm:p-3.5 pl-10 sm:pl-11 border ${border} rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base ${bgSecondary} ${textPrimary} transition-all touch-manipulation`}
+                        style={{ fontSize: '16px' }}
                       />
                       <i className={`fa-solid fa-search absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-sm ${textSecondary}`}></i>
                     </div>
@@ -2623,7 +2699,8 @@ export default function Todo() {
                       onChange={(e) => setNovaTarefa(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && adicionarTarefaRapida()}
                       placeholder="Adicionar tarefa..."
-                      className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm sm:text-base touch-manipulation"
+                      className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-base touch-manipulation"
+                      style={{ fontSize: '16px' }}
                     />
 
                     <button
